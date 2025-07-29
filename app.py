@@ -9,36 +9,34 @@ st.write("Calculate margin from a price — or compute required sale price to me
 st.caption("📍 Available routes: Abidjan → Antwerp, San Pedro → Hamburg, Accra → Rotterdam")
 
 # --- Cost data ---
-transport_to_port = {
-    "Kumasi": {"Abidjan": 120, "San Pedro": 130},
-    "Tamale": {"Accra": 140}
-}
+finance_rate = 0.08  # annual interest rate
+eur_usd = 1.08       # fixed EUR to USD rate
+import os
+excel_path = "logistics_freight_trade_calc.xlsx"
+freight_costs = {}
 
-port_fobbing = {
-    "Abidjan": 100,
-    "San Pedro": 110,
-    "Accra": 105
-}
-
-freight_costs = {
-    ("Abidjan", "Antwerp"): {
-        "CMA CGM": 600,
-        "HAPAG": 466,
-        "OOCL": 850,
-        "MSC": 559,
-        "Grimaldi": 1312,
-        "STS_HAPAG": 769
-    },
-    ("San Pedro", "Hamburg"): {
-        "Simulated": 900
-    },
-    ("Accra", "Rotterdam"): {
-        "Simulated": 880
+if os.path.exists(excel_path):
+    df_excel = pd.read_excel(excel_path)
+    df_excel.columns = [str(col).strip().upper() for col in df_excel.columns]
+    df_excel = df_excel.dropna(subset=["POL", "POD", "SHIPPING LINE", "ALL_IN"])
+    for _, row in df_excel.iterrows():
+        route = (row["POL"].strip(), row["POD"].strip())
+        carrier = row["SHIPPING LINE"].strip()
+        try:
+            cost = float(row["ALL_IN"])
+        except ValueError:
+            continue
+        if route not in freight_costs:
+            freight_costs[route] = {}
+        freight_costs[route][carrier] = cost
+else:
+    st.warning("⚠️ Excel file with freight costs not found — using built-in sample.")
+    freight_costs = {
+        ("Abidjan", "Antwerp"): {"CMA CGM": 600, "MSC": 559},
+        ("San Pedro", "Hamburg"): {"Simulated": 900},
+        ("Accra", "Rotterdam"): {"Simulated": 880}
     }
-}
 
-finance_rate = 0.08  # annual
-eur_usd = 1.08
 
 # --- Freight helper ---
 def get_freight_per_ton(port_from, port_to, selected_carrier=None):
