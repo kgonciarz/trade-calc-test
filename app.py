@@ -12,7 +12,11 @@ st.caption("📍 Available routes: Abidjan → Antwerp, San Pedro → Hamburg, A
 with st.sidebar:
     st.header("⚙️ Parameters")
     finance_rate = st.number_input("Annual finance rate (%)", value=8.0, step=0.1) / 100
-    eur_usd = st.number_input("EUR/USD exchange rate", value=1.08, step=0.01)
+    fx_currencies = ["EUR", "USD", "GBP"]
+    base_currency = st.selectbox("Base currency:", fx_currencies, index=0)
+    quote_currency = st.selectbox("Quote currency:", fx_currencies, index=1)
+    fx_rate = st.number_input(f"Exchange rate ({base_currency}/{quote_currency})", value=1.08, step=0.01)
+    eur_usd = fx_rate if base_currency == "EUR" and quote_currency == "USD" else 1.08  # fallback if needed
 transport_to_port = {
     "Kumasi": {"Abidjan": 120, "San Pedro": 130},
     "Tamale": {"Accra": 140}
