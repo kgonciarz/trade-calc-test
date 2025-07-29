@@ -175,7 +175,7 @@ def build_cost(trade, selected_carrier=None):
 
 # --- UI ---
 query = st.text_input("✏️ Trade scenario:", 
-                      "Buy 250T EXW Kumasi €2800, export via Abidjan, target €200 margin")
+                      "Buy 250T EXW Kumasi €2800, FOB Abidjan, target €200 margin, sell CIF Antwerp")
 
 if query:
     try:
