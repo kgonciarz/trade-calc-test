@@ -147,6 +147,32 @@ def compute_reverse(trade, carrier):
         "Freight €/ton": get_freight_per_ton(trade["port"], trade["destination"], carrier)
     }
 
+# --- Cost builder ---
+def build_cost(trade, selected_carrier=None):
+    total = trade["buy_price"]
+    costs = [("Base (" + trade["buy_term"] + ")", total)]
+
+    if trade["buy_term"] == "EXW" and trade["origin_city"] and trade["port"]:
+        inland = transport_to_port.get(trade["origin_city"], {}).get(trade["port"], 0)
+        total += inland
+        costs.append(("Inland (EXW→FCA)", inland))
+
+    if trade["buy_term"] in ["EXW", "FCA"] and trade["port"]:
+        port_cost = port_fobbing.get(trade["port"], 100)
+        total += port_cost
+        costs.append(("Port (FCA→FOB)", port_cost))
+
+    if trade["sell_term"] in ["CIF", "CFR"]:
+        freight = get_freight_per_ton(trade["port"], trade["destination"], selected_carrier)
+        total += freight
+        costs.append(("Freight (FOB→" + trade["sell_term"] + ")", freight))
+
+    finance = (total * finance_rate) * (trade["payment_days"] / 360)
+    total += finance
+    costs.append(("Finance", round(finance, 2)))
+
+    return total, costs
+
 # --- UI ---
 query = st.text_input("✏️ Trade scenario:", 
                       "Buy 250T EXW Kumasi €2800, export via Abidjan, target €200 margin")
