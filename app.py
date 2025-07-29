@@ -6,6 +6,8 @@ st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate margin from a price — or compute required sale price to meet a target margin.")
 
+st.caption("📍 Available routes: Abidjan → Antwerp, San Pedro → Hamburg, Accra → Rotterdam")
+
 # --- Cost data ---
 transport_to_port = {
     "Kumasi": {"Abidjan": 120, "San Pedro": 130},
@@ -19,13 +21,36 @@ port_fobbing = {
 }
 
 freight_costs = {
-    ("Abidjan", "Rotterdam"): 85,
-    ("San Pedro", "Hamburg"): 90,
-    ("Accra", "Antwerp"): 88
+    ("Abidjan", "Antwerp"): {
+        "CMA CGM": 600,
+        "HAPAG": 466,
+        "OOCL": 850,
+        "MSC": 559,
+        "Grimaldi": 1312,
+        "STS_HAPAG": 769
+    },
+    ("San Pedro", "Hamburg"): {
+        "Simulated": 900
+    },
+    ("Accra", "Rotterdam"): {
+        "Simulated": 880
+    }
 }
 
 finance_rate = 0.08  # annual
 eur_usd = 1.08
+
+# --- Freight helper ---
+def get_freight_per_ton(port_from, port_to, selected_carrier=None):
+    route = (port_from, port_to)
+    if route in freight_costs:
+        costs = freight_costs[route]
+        if selected_carrier and selected_carrier in costs:
+            return round(costs[selected_carrier] / 25, 2)
+        min_value = min(costs.values())
+        return round(min_value / 25, 2)
+    else:
+        return 90  # fallback
 
 # --- Parse query ---
 def parse_query(text):
@@ -33,33 +58,28 @@ def parse_query(text):
     data["volume"] = int(re.findall(r"(\d+)\s?T", text)[0])
     data["buy_price"] = float(re.findall(r"(EXW|FCA|FOB).*?[€$]?(\d{3,5})", text)[0][1])
     data["buy_term"] = re.findall(r"(EXW|FCA|FOB)", text)[0]
-    data["origin_city"] = re.findall(r"EXW\s+([A-Za-z\s]+)", text)
+    data["origin_city"] = re.findall(r"(?:EXW|FOB|FCA)\s+([A-Za-z\s]+)", text)
     data["port"] = re.findall(r"FOB\s+([A-Za-z\s]+)", text)
-    # Safe extract from regex
     dest_match = re.findall(r"(?:CIF|CFR)\s+([A-Za-z\s]+)", text)
     data["destination"] = dest_match[0].strip() if dest_match else None
-    data["destination"] = dest_match[0].strip() if dest_match else None
     if not data["destination"]:
-        data["destination"] = data.get("port", "Unknown")
+        via_match = re.findall(r"via\s+([A-Za-z\s]+)", text)
+        data["destination"] = via_match[0].strip() if via_match else None
     data["payment_days"] = int(re.findall(r"(\d{1,3})[dD]", text)[0]) if "LC" in text else 0
     data["currency"] = "EUR" if "€" in text or "EUR" in text else "USD"
     data["is_reverse"] = "target" in text.lower()
     if data["is_reverse"]:
         data["target_margin"] = float(re.findall(r"target.*?€?(\d{2,5})", text.lower())[0])
-        data["sell_term"] = "CIF"  # implied
+        data["sell_term"] = "CIF"
     else:
         data["sell_price"] = float(re.findall(r"(CIF|CFR).*?[€$]?(\d{3,5})", text)[0][1])
         data["sell_term"] = re.findall(r"(CIF|CFR)", text)[0]
     data["origin_city"] = data["origin_city"][0].strip() if data["origin_city"] else None
     data["port"] = data["port"][0].strip() if data["port"] else None
-    # Fallback if not found
-    if not data["destination"]:
-        via_match = re.findall(r"via\s+([A-Za-z\s]+)", text)
-        data["destination"] = via_match[0].strip() if via_match else None
     return data
 
 # --- Cost builder ---
-def build_cost(trade):
+def build_cost(trade, selected_carrier=None):
     total = trade["buy_price"]
     costs = [("Base (" + trade["buy_term"] + ")", total)]
 
@@ -73,9 +93,11 @@ def build_cost(trade):
         total += port_cost
         costs.append(("Port (FCA→FOB)", port_cost))
 
-    freight = freight_costs.get((trade["port"], trade["destination"]), 90)
-    total += freight
-    costs.append(("Freight (FOB→" + trade["sell_term"] + ")", freight))
+    # Only add freight if sale term is CIF or CFR
+    if trade["sell_term"] in ["CIF", "CFR"]:
+        freight = get_freight_per_ton(trade["port"], trade["destination"], selected_carrier)
+        total += freight
+        costs.append(("Freight (FOB→" + trade["sell_term"] + ")", freight))
 
     finance = (total * finance_rate) * (trade["payment_days"] / 360)
     total += finance
@@ -84,8 +106,8 @@ def build_cost(trade):
     return total, costs
 
 # --- Margin logic ---
-def compute_forward(trade):
-    total_cost, details = build_cost(trade)
+def compute_forward(trade, carrier):
+    total_cost, details = build_cost(trade, carrier)
     if trade["currency"] == "USD":
         sell_price = trade["sell_price"] / eur_usd
     else:
@@ -96,18 +118,22 @@ def compute_forward(trade):
         "Sell Price": round(sell_price, 2),
         "Total Cost": round(total_cost, 2),
         "Margin/ton": round(margin_per_ton, 2),
-        "Total Margin": round(total_margin, 2)
+        "Total Margin": round(total_margin, 2),
+        "Selected Carrier": carrier if carrier else "Auto (cheapest)",
+        "Freight €/ton": get_freight_per_ton(trade["port"], trade["destination"], carrier)
     }
 
-def compute_reverse(trade):
-    total_cost, details = build_cost(trade)
+def compute_reverse(trade, carrier):
+    total_cost, details = build_cost(trade, carrier)
     required_sell = total_cost + trade["target_margin"]
     total_margin = trade["target_margin"] * trade["volume"]
     return details, {
         "Required Sale Price": round(required_sell, 2),
         "Target Margin/ton": trade["target_margin"],
         "Total Cost": round(total_cost, 2),
-        "Total Target Margin": round(total_margin, 2)
+        "Total Target Margin": round(total_margin, 2),
+        "Selected Carrier": carrier if carrier else "Auto (cheapest)",
+        "Freight €/ton": get_freight_per_ton(trade["port"], trade["destination"], carrier)
     }
 
 # --- UI ---
@@ -117,13 +143,22 @@ query = st.text_input("✏️ Trade scenario:",
 if query:
     try:
         trade = parse_query(query)
+
+        # Carrier dropdown
+        carrier_list = freight_costs.get((trade['port'], trade['destination']), {}).keys()
+        selected_carrier = st.selectbox("🚢 Select Shipping Line (optional)", ["Auto (cheapest)"] + list(carrier_list))
+        carrier_used = selected_carrier if selected_carrier != "Auto (cheapest)" else None
+
+        containers_needed = round(trade["volume"] / 25)
+        st.markdown(f"🧱 Estimated containers: **{containers_needed} x 40'**")
+
         if trade["is_reverse"]:
-            breakdown, summary = compute_reverse(trade)
+            breakdown, summary = compute_reverse(trade, carrier_used)
             st.subheader("🔁 Reverse Calculator")
             st.markdown(f"🎯 To hit a **{summary['Target Margin/ton']} EUR/ton** margin:")
-            st.success(f"👉 You must sell at **{summary['Required Sale Price']} EUR/ton CIF {trade['destination']}**")
+            st.success(f"👉 You must sell at **{summary['Required Sale Price']} EUR/ton {trade['sell_term']} {trade['destination']}**")
         else:
-            breakdown, summary = compute_forward(trade)
+            breakdown, summary = compute_forward(trade, carrier_used)
             st.subheader("📈 Forward Margin Calculation")
             st.success(f"💰 Margin: {summary['Margin/ton']} EUR/ton")
 
