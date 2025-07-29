@@ -194,37 +194,7 @@ def build_cost(trade, selected_carrier=None):
     costs.append(("Finance", round(finance, 2)))
 
     return total, costs
-# --- Margin logic ---
-def compute_forward(trade, carrier):
-    total_cost, details = build_cost(trade, carrier)
-    sell_price = trade["sell_price"]
-    if (trade["currency"], base_currency) in fx_matrix:
-        sell_price = sell_price / fx_matrix[(trade["currency"], base_currency)]
-    margin_per_ton = sell_price - total_cost
-    total_margin = margin_per_ton * trade["volume"]
-    return details, {
-        "Sell Price": round(sell_price, 2),
-        "Total Cost": round(total_cost, 2),
-        "Margin/ton": round(margin_per_ton, 2),
-        "Total Margin": round(total_margin, 2),
-        "Selected Carrier": carrier if carrier else "Auto (cheapest)",
-        "Freight €/ton": get_freight_per_ton(trade["port"], trade["destination"], carrier)
-    }
 
-def compute_reverse(trade, carrier):
-    total_cost, details = build_cost(trade, carrier)
-    required_sell = total_cost + trade["target_margin"]
-    if (base_currency, trade["currency"]) in fx_matrix:
-        required_sell = required_sell * fx_matrix[(base_currency, trade["currency"])]
-    total_margin = trade["target_margin"] * trade["volume"]
-    return details, {
-        "Required Sale Price": round(required_sell, 2),
-        "Target Margin/ton": trade["target_margin"],
-        "Total Cost": round(total_cost, 2),
-        "Total Target Margin": round(total_margin, 2),
-        "Selected Carrier": carrier if carrier else "Auto (cheapest)",
-        "Freight €/ton": get_freight_per_ton(trade["port"], trade["destination"], carrier)
-    }
 # --- UI ---
 query = st.text_input("✏️ Trade scenario:", 
                       "Buy 250T EXW Kumasi €2800, FOB Abidjan, target €200 margin, sell CIF Antwerp")
