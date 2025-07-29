@@ -9,6 +9,16 @@ st.write("Calculate margin from a price — or compute required sale price to me
 st.caption("📍 Available routes: Abidjan → Antwerp, San Pedro → Hamburg, Accra → Rotterdam")
 
 # --- Cost data ---
+transport_to_port = {
+    "Kumasi": {"Abidjan": 120, "San Pedro": 130},
+    "Tamale": {"Accra": 140}
+}
+
+port_fobbing = {
+    "Abidjan": 100,
+    "San Pedro": 110,
+    "Accra": 105
+}
 finance_rate = 0.08  # annual interest rate
 eur_usd = 1.08       # fixed EUR to USD rate
 import os
