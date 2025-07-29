@@ -224,6 +224,7 @@ def compute_reverse(trade, carrier):
         "Total Target Margin": round(total_margin, 2),
         "Selected Carrier": carrier if carrier else "Auto (cheapest)",
         "Freight €/ton": get_freight_per_ton(trade["port"], trade["destination"], carrier)
+    }
 # --- UI ---
 query = st.text_input("✏️ Trade scenario:", 
                       "Buy 250T EXW Kumasi €2800, FOB Abidjan, target €200 margin, sell CIF Antwerp")
