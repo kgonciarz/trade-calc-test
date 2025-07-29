@@ -16,7 +16,14 @@ with st.sidebar:
     base_currency = st.selectbox("Base currency:", fx_currencies, index=0)
     quote_currency = st.selectbox("Quote currency:", fx_currencies, index=1)
     fx_rate = st.number_input(f"Exchange rate ({base_currency}/{quote_currency})", value=1.08, step=0.01)
-    eur_usd = fx_rate if base_currency == "EUR" and quote_currency == "USD" else 1.08  # fallback if needed
+    fx_matrix = {
+        ("EUR", "USD"): fx_rate,
+        ("USD", "EUR"): 1 / fx_rate,
+        ("EUR", "GBP"): fx_rate if quote_currency == "GBP" else 0.85,
+        ("GBP", "EUR"): 1 / fx_rate if quote_currency == "GBP" else 1.18,
+        ("USD", "GBP"): fx_rate if base_currency == "USD" and quote_currency == "GBP" else 0.75,
+        ("GBP", "USD"): 1 / fx_rate if base_currency == "USD" and quote_currency == "GBP" else 1.33,
+    }
 transport_to_port = {
     "Kumasi": {"Abidjan": 120, "San Pedro": 130},
     "Tamale": {"Accra": 140}
