@@ -52,6 +52,17 @@ def get_freight_per_ton(port_from, port_to, selected_carrier=None):
     else:
         return 90  # fallback
 
+def select_freight_carrier(trade):
+    route = (trade.get("port"), trade.get("destination"))
+    carriers = list(freight_costs.get(route, {}).keys())
+    if len(carriers) > 1:
+        return st.selectbox("🚢 Choose shipping line:", carriers)
+    elif carriers:
+        st.caption(f"Only one freight option available: {carriers[0]}")
+        return carriers[0]
+    else:
+        st.caption("No freight data available for this route.")
+        return None
 # --- Parse query ---
 def parse_query(text):
     data = {}
