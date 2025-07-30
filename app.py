@@ -57,15 +57,12 @@ calc_type = st.sidebar.selectbox(
 is_reverse = calc_type == "Margin Calculation"
 
 if is_reverse:
-    target_margin = st.sidebar.number_input(
-        "Target Margin (€ per ton)", min_value=0.0, value=200.0, step=10.0
-    )
+    target_margin = st.sidebar.number_input("Target Margin (€ per ton)", min_value=0.0, value=200.0, step=10.0)
     sell_price = None
 else:
-    sell_price = st.sidebar.number_input(
-        "Sell Price (€ per ton)", min_value=0.0, value=1400.0, step=10.0
-    )
+    sell_price = st.sidebar.number_input("Sell Price (€ per ton)", min_value=0.0, value=1400.0, step=10.0)
     target_margin = None
+
 
 if buy_currency == "USD":
     buy_price *= usd_to_eur
@@ -161,18 +158,20 @@ if freight_per_ton is not None:
     st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
 
     if trade_data["is_reverse"]:
-        # Target price given → calculate margin
-        margin_per_ton = trade_data["target_margin"] - cost_per_ton
-        total_margin = margin_per_ton * trade_data["volume"]
-        st.success(f"Margin per ton: **€{round(margin_per_ton, 2)}**")
-        st.success(f"Total margin: **€{round(total_margin, 2)}**")
-    else:
-        # Sell price given → calculate margin
+    # Target margin given → calculate required sell price
         required_sell_price = cost_per_ton + trade_data["target_margin"]
         total_revenue = required_sell_price * trade_data["volume"]
 
         st.success(f"Required sell price per ton: **€{round(required_sell_price, 2)}**")
         st.success(f"Total revenue to meet margin target: **€{round(total_revenue, 2)}**")
+    else:
+    # Sell price given → calculate actual margin
+        margin_per_ton = trade_data["sell_price"] - cost_per_ton
+        total_margin = margin_per_ton * trade_data["volume"]
+
+        st.success(f"Margin per ton: **€{round(margin_per_ton, 2)}**")
+        st.success(f"Total margin: **€{round(total_margin, 2)}**")
+
 else:
     st.warning("⚠️ No freight cost available — cannot perform margin calculation.")
 
