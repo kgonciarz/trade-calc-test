@@ -114,13 +114,13 @@ if os.path.exists(excel_path):
         freight_costs[route][carrier] = cost
 
 
-"""
-Returns the freight cost per ton for a given route and optional shipping line.
-If a specific carrier is provided and exists for the route, its cost is used.
-Otherwise, the lowest available cost for the route is used.
-Assumes container weight of 25 tons.
-Prints an error message and returns None if the route is not found.
-"""
+
+# Returns the freight cost per ton for a given route and optional shipping line.
+# If a specific carrier is provided and exists for the route, its cost is used.
+# Otherwise, the lowest available cost for the route is used.
+# Assumes container weight of 25 tons.
+# Prints an error message and returns None if the route is not found.
+
 def get_freight_per_ton(port_from, port_to, selected_carrier=None):
     route = (port_from, port_to)
     if route in freight_costs:
@@ -167,10 +167,11 @@ if freight_per_ton is not None:
         st.success(f"Total margin: **€{round(total_margin, 2)}**")
     else:
         # Sell price given → calculate margin
-        margin_per_ton = trade_data["sell_price"] - cost_per_ton
-        total_margin = margin_per_ton * trade_data["volume"]
-        st.success(f"Margin per ton: **€{round(margin_per_ton, 2)}**")
-        st.success(f"Total margin: **€{round(total_margin, 2)}**")
+        required_sell_price = cost_per_ton + trade_data["target_margin"]
+        total_revenue = required_sell_price * trade_data["volume"]
+
+        st.success(f"Required sell price per ton: **€{round(required_sell_price, 2)}**")
+        st.success(f"Total revenue to meet margin target: **€{round(total_revenue, 2)}**")
 else:
     st.warning("⚠️ No freight cost available — cannot perform margin calculation.")
 
