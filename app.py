@@ -54,7 +54,7 @@ calc_type = st.sidebar.selectbox(
     ["Sell Price Calculation", "Margin Calculation"]
 )
 
-is_reverse = calc_type == "Sell Price Calculation"
+is_reverse = calc_type == "Margin Calculation"
 
 if is_reverse:
     target_margin = st.sidebar.number_input(
@@ -63,7 +63,7 @@ if is_reverse:
     sell_price = None
 else:
     sell_price = st.sidebar.number_input(
-        "Sell Price (€)", min_value=0.0, value=0.0, step=10.0
+        "Target margin (€)", min_value=0.0, value=200.0, step=10.0
     )
     target_margin = None
 if buy_currency == "USD":
