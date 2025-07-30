@@ -57,12 +57,12 @@ calc_type = st.sidebar.selectbox(
 is_reverse = calc_type == "Margin Calculation"
 
 if is_reverse:
-    target_margin = st.sidebar.number_input(
+    sell_price = st.sidebar.number_input(
         "Target Sell Price (€)", min_value=0.0, value=1400.0, step=10.0
     )
     sell_price = None
 else:
-    sell_price = st.sidebar.number_input(
+    target_margin = st.sidebar.number_input(
         "Target margin (€)", min_value=0.0, value=200.0, step=10.0
     )
     target_margin = None
