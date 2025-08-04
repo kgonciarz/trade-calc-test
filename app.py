@@ -3,8 +3,13 @@ import openai
 import re
 import pandas as pd
 import os
+import os
+import openai
+from dotenv import load_dotenv
 
-openai.api_key = "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"
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs")
