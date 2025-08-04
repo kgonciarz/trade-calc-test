@@ -1,12 +1,10 @@
 import streamlit as st
 import os
-import openai
 from openai import OpenAI
 import re
 import pandas as pd
 from dotenv import load_dotenv
 import yfinance as yf
-import requests
   
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -15,17 +13,14 @@ st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs")
 
-def get_fx_usdeur():
-    url = "https://api.exchangerate.host/latest?base=USD&symbols=EUR"
-    try:
-        response = requests.get(url)
-        if response.ok:
-            return round(response.json()["rates"]["EUR"], 4)
-    except:
-        pass
+def get_fx_rate(pair="EURUSD=X"):
+    ticker = yf.Ticker(pair)
+    data = ticker.history(period="1d")
+    if not data.empty:
+        return round(data["Close"][-1], 4)
     return None
 #fx rates
-fx_rate = get_fx_usdeur() or 0.93
+fx_rate = get_fx_rate("USDEUR=X") or 0.93
 
 #setting up sidebar with trade parameters
 pol_options = [
@@ -229,11 +224,11 @@ if freight_per_ton is not None:
         # AI analysis block
         margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
         cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
-        fx_rate = get_fx_usdeur() or 0.93
+        fx_rate = get_fx_rate("USDEUR=X") or 0.93
 
 # AI-generated analysis
 cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
-fx_rate = get_fx_usdeur() or 0.93
+fx_rate = get_fx_rate("USDEUR=X") or 0.93
 
 if freight_per_ton is not None:
     with st.expander("🧠 AI Analysis"):
