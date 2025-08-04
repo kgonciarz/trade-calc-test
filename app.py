@@ -1,8 +1,10 @@
 import streamlit as st
+import openai
 import re
 import pandas as pd
 import os
 
+openai.api_key = "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"
 st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs")
@@ -81,6 +83,34 @@ trade_data = {
     "target_margin": target_margin,
     "sell_price": sell_price
 }
+
+def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, margin):
+    prompt = f"""
+You are a commodity market analyst. Based on the following data:
+
+- Purchase price: {buy_price} EUR/ton
+- Selling price: {sell_price} EUR/ton
+- Freight cost: {freight_cost} EUR/ton
+- Cocoa market price: {cocoa_price} EUR/ton
+- FX rate (USD/EUR): {fx_rate}
+- Calculated margin: {margin:.2f}%
+
+Please provide:
+1. Assessment of whether the margin is attractive in the current cocoa market.
+2. Identification of potential risks (e.g., FX volatility, supply/demand shifts, freight rate changes).
+3. 1 or 2 concise recommendations for the trader based on these figures.
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.7
+        )
+        return response.choices[0].message["content"]
+    except Exception as e:
+        return f"Error generating AI comment: {str(e)}"
 
 # importing the Excel file with freight costs and creating a dictionary of costs
 import os
@@ -175,4 +205,20 @@ if freight_per_ton is not None:
 else:
     st.warning("⚠️ No freight cost available — cannot perform margin calculation.")
 
+# AI-generated analysis
+cocoa_market_price = 3500  # <-can be dynamic value
+fx_rate = usd_to_eur 
+margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
+
+with st.expander("🧠 AI Analysis"):
+    st.write("Generating AI commentary based on trade parameters...")
+    ai_comment = generate_ai_comment(
+        buy_price=round(trade_data["buy_price"], 2),
+        sell_price=round(trade_data["sell_price"], 2),
+        freight_cost=round(freight_per_ton, 2),
+        cocoa_price=cocoa_market_price,
+        fx_rate=round(fx_rate, 4),
+        margin=margin_percent
+    )
+    st.markdown(ai_comment)
 
