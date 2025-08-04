@@ -206,14 +206,31 @@ if freight_per_ton is not None:
     st.write(f"🚢 Freight per ton: €{freight_per_ton}")
     st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
 
-    if trade_data["is_reverse"]:
+if trade_data["is_reverse"]:
     # Target margin given → calculate required sell price
-        required_sell_price = cost_per_ton + trade_data["target_margin"]
-        total_revenue = required_sell_price * trade_data["volume"]
+    required_sell_price = cost_per_ton + trade_data["target_margin"]
+    total_revenue = required_sell_price * trade_data["volume"]
 
-        st.success(f"Required sell price per ton: **€{round(required_sell_price, 2)}**")
-        st.success(f"Total revenue to meet margin target: **€{round(total_revenue, 2)}**")
-    else:
+    st.success(f"Required sell price per ton: **€{round(required_sell_price, 2)}**")
+    st.success(f"Total revenue to meet margin target: **€{round(total_revenue, 2)}**")
+
+    # AI analysis block for reverse mode
+    margin_percent = (trade_data["target_margin"] / required_sell_price) * 100 if required_sell_price else 0
+    cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
+
+    with st.expander("🧠 AI Analysis"):
+        st.write("Generating AI commentary based on trade parameters...")
+        ai_comment = generate_ai_comment(
+            buy_price=round(trade_data["buy_price"], 2),
+            sell_price=round(required_sell_price, 2),
+            freight_cost=round(freight_per_ton, 2),
+            cocoa_price=cocoa_market_price,
+            fx_rate=round(fx_rate, 4),
+            margin=margin_percent
+        )
+        st.markdown(ai_comment)
+
+else:
     # Sell price given → calculate actual margin
         margin_per_ton = trade_data["sell_price"] - cost_per_ton
         total_margin = margin_per_ton * trade_data["volume"]
