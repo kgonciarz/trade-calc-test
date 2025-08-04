@@ -94,7 +94,7 @@ trade_data = {
     "sell_price": sell_price
 }
 
-def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, margin):
+def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, margin, mode):
     prompt = f"""
 You are a commodity market analyst. Based on the following trade parameters:
 
