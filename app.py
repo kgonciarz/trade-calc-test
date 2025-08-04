@@ -5,6 +5,7 @@ from openai import OpenAI
 import re
 import pandas as pd
 from dotenv import load_dotenv
+import yfinance as yf
 
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -155,6 +156,13 @@ if os.path.exists(excel_path):
 # Assumes container weight of 25 tons.
 # Prints an error message and returns None if the route is not found.
 
+def get_cocoa_price():
+    cocoa = yf.Ticker("CC=F")
+    data = cocoa.history(period="1d")
+    if not data.empty:
+        return round(data["Close"][-1], 2)
+    return None
+
 def get_freight_per_ton(port_from, port_to, selected_carrier=None):
     route = (port_from, port_to)
     if route in freight_costs:
@@ -210,11 +218,11 @@ if freight_per_ton is not None:
 
         # AI analysis block
         margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
-        cocoa_market_price = 3500
+        cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
         fx_rate = usd_to_eur
 
 # AI-generated analysis
-cocoa_market_price = 3500  # <-can be dynamic value
+cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
 fx_rate = usd_to_eur 
 
 if freight_per_ton is not None:
