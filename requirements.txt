@@ -1,1 +1,5 @@
 openpyxl
+openai
+python-dotenv
+pandas
+streamlit
