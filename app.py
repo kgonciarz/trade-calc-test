@@ -1,9 +1,9 @@
 import streamlit as st
 import openai
+from openai import OpenAI
 import re
 import pandas as pd
 import os
-import openai
 from dotenv import load_dotenv
 
 load_dotenv()
