@@ -96,8 +96,9 @@ trade_data = {
 
 def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, margin):
     prompt = f"""
-You are a commodity market analyst. Based on the following data:
+You are a commodity market analyst. Based on the following trade parameters:
 
+- Calculation mode: {mode}
 - Purchase price: {buy_price} EUR/ton
 - Selling price: {sell_price} EUR/ton
 - Freight cost: {freight_cost} EUR/ton
@@ -106,10 +107,10 @@ You are a commodity market analyst. Based on the following data:
 - Calculated margin: {margin:.2f}%
 
 Please provide:
-1. Assessment of whether the margin is attractive in the current cocoa market.
-2. Identification of potential risks (e.g., FX volatility, supply/demand shifts, freight rate changes).
-3. 1 or 2 concise recommendations for the trader based on these figures.
-    """
+1. An assessment of whether the margin is attractive in the current cocoa market.
+2. A short list of potential risks (e.g., FX volatility, supply/demand shifts, freight rate changes).
+3. 1 or 2 concise and practical recommendations for the trader based on these figures.
+"""
 
     try:
         response = client.chat.completions.create(
@@ -221,13 +222,14 @@ if trade_data["is_reverse"]:
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
         ai_comment = generate_ai_comment(
-            buy_price=round(trade_data["buy_price"], 2),
-            sell_price=round(required_sell_price, 2),
-            freight_cost=round(freight_per_ton, 2),
-            cocoa_price=cocoa_market_price,
-            fx_rate=round(fx_rate, 4),
-            margin=margin_percent
-        )
+        buy_price=round(trade_data["buy_price"], 2),
+        sell_price=round(required_sell_price, 2),
+        freight_cost=round(freight_per_ton, 2),
+        cocoa_price=cocoa_market_price,
+        fx_rate=round(fx_rate, 4),
+        margin=margin_percent,
+        mode="Target Margin Mode"
+    )
         st.markdown(ai_comment)
 
 else:
@@ -248,12 +250,13 @@ if freight_per_ton is not None and not trade_data["is_reverse"] and trade_data["
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
         ai_comment = generate_ai_comment(
-            buy_price=round(trade_data["buy_price"], 2),
-            sell_price=round(trade_data["sell_price"], 2),
-            freight_cost=round(freight_per_ton, 2),
-            cocoa_price=cocoa_market_price,
-            fx_rate=round(fx_rate, 4),
-            margin=margin_percent
-        )
+        buy_price=round(trade_data["buy_price"], 2),
+        sell_price=round(trade_data["sell_price"], 2),
+        freight_cost=round(freight_per_ton, 2),
+        cocoa_price=cocoa_market_price,
+        fx_rate=round(fx_rate, 4),
+        margin=margin_percent
+        mode="Margin Calculation Mode"
+    )
         st.markdown(ai_comment)
 
