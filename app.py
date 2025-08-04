@@ -3,12 +3,12 @@ import openai
 import re
 import pandas as pd
 import os
-import os
 import openai
 from dotenv import load_dotenv
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()
 
 st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
@@ -107,15 +107,14 @@ Please provide:
     """
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
             temperature=0.7
         )
-        return response.choices[0].message["content"]
-    except Exception as e:
-        return f"Error generating AI comment: {str(e)}"
+
+        return response.choices[0].message.content
 
 # importing the Excel file with freight costs and creating a dictionary of costs
 import os
