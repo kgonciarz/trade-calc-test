@@ -115,6 +115,9 @@ Please provide:
         )
 
         return response.choices[0].message.content
+    except Exception as e:
+        return f"Error generating AI comment: {str(e)}"
+    
 
 # importing the Excel file with freight costs and creating a dictionary of costs
 import os
