@@ -6,7 +6,8 @@ import re
 import pandas as pd
 from dotenv import load_dotenv
 import yfinance as yf
-
+import requests
+  
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -14,8 +15,17 @@ st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs")
 
+def get_fx_usdeur():
+    url = "https://api.exchangerate.host/latest?base=USD&symbols=EUR"
+    try:
+        response = requests.get(url)
+        if response.ok:
+            return round(response.json()["rates"]["EUR"], 4)
+    except:
+        pass
+    return None
 #fx rates
-usd_to_eur = 0.93
+fx_rate = get_fx_usdeur() or 0.93
 
 #setting up sidebar with trade parameters
 pol_options = [
@@ -72,10 +82,10 @@ else:
 
 
 if buy_currency == "USD":
-    buy_price *= usd_to_eur
+    buy_price *= fx_rate
 
 if sell_currency == "USD":
-    sell_price *= usd_to_eur
+    sell_price *= fx_rate
 trade_data = {
     "volume": volume,
     "buy_term": buy_term,
@@ -130,7 +140,7 @@ if os.path.exists(excel_path):
     df_excel.columns = [str(col).strip().upper() for col in df_excel.columns]
     df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)]
     df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] = (
-        df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"].astype(float) * usd_to_eur
+        df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"].astype(float) * fx_rate
     )
     df_excel = df_excel[["POL", "POD", "SHIPPING LINE", "ALL_IN"]]
     df_excel = df_excel.dropna(subset=["POL", "POD", "SHIPPING LINE", "ALL_IN"])
@@ -219,11 +229,11 @@ if freight_per_ton is not None:
         # AI analysis block
         margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
         cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
-        fx_rate = usd_to_eur
+        fx_rate = get_fx_usdeur() or 0.93
 
 # AI-generated analysis
 cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
-fx_rate = usd_to_eur 
+fx_rate = get_fx_usdeur() or 0.93
 
 if freight_per_ton is not None:
     with st.expander("🧠 AI Analysis"):
