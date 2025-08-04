@@ -217,15 +217,16 @@ if freight_per_ton is not None:
 cocoa_market_price = 3500  # <-can be dynamic value
 fx_rate = usd_to_eur 
 
-with st.expander("🧠 AI Analysis"):
-    st.write("Generating AI commentary based on trade parameters...")
-    ai_comment = generate_ai_comment(
-        buy_price=round(trade_data["buy_price"], 2),
-        sell_price=round(trade_data["sell_price"], 2),
-        freight_cost=round(freight_per_ton, 2),
-        cocoa_price=cocoa_market_price,
-        fx_rate=round(fx_rate, 4),
-        margin=margin_percent
-    )
-    st.markdown(ai_comment)
+if freight_per_ton is not None:
+    with st.expander("🧠 AI Analysis"):
+        st.write("Generating AI commentary based on trade parameters...")
+        ai_comment = generate_ai_comment(
+            buy_price=round(trade_data["buy_price"], 2),
+            sell_price=round(trade_data["sell_price"], 2),
+            freight_cost=round(freight_per_ton, 2),
+            cocoa_price=cocoa_market_price,
+            fx_rate=round(fx_rate, 4),
+            margin=margin_percent
+        )
+        st.markdown(ai_comment)
 
