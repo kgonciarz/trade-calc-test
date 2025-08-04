@@ -208,17 +208,10 @@ if freight_per_ton is not None:
         st.success(f"Margin per ton: **€{round(margin_per_ton, 2)}**")
         st.success(f"Total margin: **€{round(total_margin, 2)}**")
 
-else:
-    st.warning("⚠️ No freight cost available — cannot perform margin calculation.")
-    
-if not trade_data["is_reverse"]:
-    margin_per_ton = trade_data["sell_price"] - cost_per_ton
-    total_margin = margin_per_ton * trade_data["volume"]
-
-    st.success(f"Margin per ton: **€{round(margin_per_ton, 2)}**")
-    st.success(f"Total margin: **€{round(total_margin, 2)}**")
-
-    margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
+        # AI analysis block
+        margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
+        cocoa_market_price = 3500
+        fx_rate = usd_to_eur
 
 # AI-generated analysis
 cocoa_market_price = 3500  # <-can be dynamic value
