@@ -255,7 +255,7 @@ if freight_per_ton is not None and not trade_data["is_reverse"] and trade_data["
         freight_cost=round(freight_per_ton, 2),
         cocoa_price=cocoa_market_price,
         fx_rate=round(fx_rate, 4),
-        margin=margin_percent
+        margin=margin_percent,
         mode="Margin Calculation Mode"
     )
         st.markdown(ai_comment)
