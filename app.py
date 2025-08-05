@@ -241,19 +241,23 @@ if freight_per_ton is not None:
 # 💬 Pokazanie kosztów magazynu
     with st.expander("📦 Warehouse Cost Breakdown"):
         st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
+
         if warehouse_costs is not None:
-            styled_table = warehouse_costs.to_frame().style.set_properties(**{
-                'text-align': 'center'
-            }).set_table_styles([{
-                'selector': 'th',
-                'props': [('background-color', '#f0f0f0')]
-            }])
-            st.dataframe(styled_table, use_container_width=True)
+            styled_table = (
+                warehouse_costs
+                .to_frame()
+                .style
+                .set_properties(**{'text-align': 'center'})
+                .set_table_styles([{
+                    'selector': 'th',
+                    'props': [('background-color', '#f0f0f0')]
+                }])
+            )
+            st.write(styled_table)
         else:
             st.write("No detailed cost breakdown available.")
 
         st.write(f"📦 Warehouse cost per ton: **€{round(warehouse_total_per_ton, 2)}**")
-
 
         # Financing cost calculation
     if trade_data["payment_days"] > 0:
