@@ -243,21 +243,28 @@ if freight_per_ton is not None:
         st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
 
         if warehouse_costs is not None:
+        # Konwertuj na DataFrame i zaokrąglij wartości do 2 miejsc
+            df_display = warehouse_costs.to_frame(name=selected_warehouse).round(2)
+
+        # Stylizacja: wyśrodkowanie liczb + jasne tło nagłówka
             styled_table = (
-                warehouse_costs
-                .to_frame()
+                df_display
                 .style
-                .set_properties(**{'text-align': 'center'})
+                .format(precision=2)  # jeszcze raz zabezpieczenie zaokrąglenia
+                .set_properties(**{'text-align': 'left'})
                 .set_table_styles([{
                     'selector': 'th',
-                    'props': [('background-color', '#f0f0f0')]
+                    'props': [('background-color', '#f0f0f0'), ('text-align', 'left')]
                 }])
             )
+
+        # Styl działa tylko z write, nie z dataframe
             st.write(styled_table)
         else:
             st.write("No detailed cost breakdown available.")
 
         st.write(f"📦 Warehouse cost per ton: **€{round(warehouse_total_per_ton, 2)}**")
+
 
         # Financing cost calculation
     if trade_data["payment_days"] > 0:
