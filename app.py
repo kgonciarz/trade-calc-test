@@ -54,6 +54,29 @@ carrier = st.sidebar.selectbox(
     ["Auto (cheapest)"] + sorted(carrier_options)
 )
 selected_carrier = carrier if carrier != "—" else None
+warehouse_options = [
+    "STEINWEG AMSTERDAM",
+    "COMMODITY CENTRE AMST",
+    "COTTERELL AMST",
+    "STEINWEG ANTWERP",
+    "COMMODITY CENTRE ANTW",
+    "KTN ANTWERP",
+    "CWT ANTWERP",
+    "VOLLERS ANTWERP",
+    "DURME NATIE ANTWERP",
+    "COMMODITY CENTRE UK FOR ICE",
+    "VOLLERS HAMBURG",
+    "COTTERELL HAMBURG",
+    "QUAST & CONS HAMBURG",
+    "FERRERO",
+    "VILLARS",
+    "ION SA",
+    "GRAND CANDY",
+    "DDS",
+    "NONE"
+]
+
+selected_warehouse = st.sidebar.selectbox("Warehouse", sorted(warehouse_options))
 payment_days = st.sidebar.number_input("Payment Terms (days)", min_value=0, value=90)
 if payment_days > 0:
     annual_rate = st.sidebar.number_input("Annual Financing Rate (%)", min_value=0.0, value=10.0, step=0.5) / 100
@@ -129,6 +152,8 @@ Please provide:
 import os
 excel_path = "logistics_freight_trade_calc.xlsx"
 freight_costs = {}
+warehouse_excel_path = "warehouse_costs.xlsx"
+warehouse_df = pd.read_excel(warehouse_excel_path, index_col=0)
 
 
 if os.path.exists(excel_path):
@@ -190,7 +215,30 @@ st.markdown(f"🧱 Estimated containers: **{containers_needed} x 20'**")
 freight_per_ton = get_freight_per_ton(trade_data["port"], trade_data["destination"], selected_carrier)
 
 if freight_per_ton is not None:
-    cost_per_ton = trade_data["buy_price"] + freight_per_ton
+    # 📥 Ładowanie kosztów magazynowych z Excela
+    warehouse_total_per_ton = 0.0  # fallback
+
+    warehouse_excel_path = "warehouse_costs.xlsx"
+    if os.path.exists(warehouse_excel_path):
+        warehouse_df = pd.read_excel(warehouse_excel_path, index_col=0)
+
+        if selected_warehouse in warehouse_df.columns:
+            warehouse_costs = warehouse_df[selected_warehouse].dropna()
+            warehouse_total_per_ton = warehouse_costs.sum()
+        else:
+            st.warning(f"No cost data found for selected warehouse: {selected_warehouse}")
+    else:
+        st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
+
+# 🔄 Dodanie kosztu magazynowego do całkowitego kosztu
+    cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton
+
+# 💬 Pokazanie kosztów magazynu
+    with st.expander("📦 Warehouse Cost Breakdown"):
+        st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
+        st.write(warehouse_costs if 'warehouse_costs' in locals() else "No detailed cost breakdown available.")
+        st.write(f"📦 Warehouse cost per ton: **€{round(warehouse_total_per_ton, 2)}**")
+
 
         # Financing cost calculation
     if trade_data["payment_days"] > 0:
