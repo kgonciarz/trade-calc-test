@@ -214,6 +214,11 @@ st.markdown(f"🧱 Estimated containers: **{containers_needed} x 20'**")
 # Step 2: Freight cost
 freight_per_ton = get_freight_per_ton(trade_data["port"], trade_data["destination"], selected_carrier)
 
+if freight_per_ton is None:
+    st.error("❌ Cannot continue: Freight cost is missing for the selected route.")
+    st.stop()  # 🔒 zatrzymaj aplikację, żeby uniknąć dalszych błędów
+
+
 if freight_per_ton is not None:
     # 📥 Ładowanie kosztów magazynowych z Excela
     warehouse_total_per_ton = 0.0  # fallback
