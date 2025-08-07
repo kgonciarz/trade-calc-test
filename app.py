@@ -137,6 +137,18 @@ carrier_options = [
     "ARKAS","ONE","CMA","HAPAG","MAERSK","MSC","OOCL","STS_MSC","STS_GRIMALDI","STS_OOCL","STS_HAPAG-LLOYD",
     "STS_ONE","STS_PIL","STS_MESSINA","STS_CMA CGM","STS_MAERSK","PIL"]
 
+
+st.sidebar.title("📦 Trade Parameters")
+volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
+buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
+buy_price = st.sidebar.number_input("Buy Price (€)", value=1200.0, step=10.0, format="%.2f")
+port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
+destination = st.sidebar.selectbox("Destination", sorted(destination_options))
+carrier = st.sidebar.selectbox(
+    "Shipping Line (optional)", 
+    ["Auto (cheapest)"] + sorted(carrier_options)
+)
+
 trade_data = {
     "volume": volume,
     "buy_term": buy_term,
@@ -149,17 +161,6 @@ trade_data = {
     "target_margin": target_margin,
     "sell_price": sell_price
 }
-
-st.sidebar.title("📦 Trade Parameters")
-volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
-buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
-buy_price = st.sidebar.number_input("Buy Price (€)", value=1200.0, step=10.0, format="%.2f")
-port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
-destination = st.sidebar.selectbox("Destination", sorted(destination_options))
-carrier = st.sidebar.selectbox(
-    "Shipping Line (optional)", 
-    ["Auto (cheapest)"] + sorted(carrier_options)
-)
 
 incoterm = trade_data["buy_term"]  # EXW / FOB / etc.
 cost_items_path = "cost_items.xlsx"
