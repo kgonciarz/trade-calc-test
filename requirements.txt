@@ -4,3 +4,4 @@ python-dotenv
 pandas
 streamlit
 yfinance
+datetime
