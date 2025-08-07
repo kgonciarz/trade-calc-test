@@ -149,35 +149,6 @@ carrier = st.sidebar.selectbox(
     ["Auto (cheapest)"] + sorted(carrier_options)
 )
 
-trade_data = {
-    "volume": volume,
-    "buy_term": buy_term,
-    "buy_price": buy_price,
-    "port": port,
-    "destination": destination,
-    "carrier": selected_carrier,
-    "payment_days": payment_days,
-    "is_reverse": is_reverse,
-    "target_margin": target_margin,
-    "sell_price": sell_price
-}
-
-incoterm = trade_data["buy_term"]  # EXW / FOB / etc.
-cost_items_path = "cost_items.xlsx"
-incoterm_matrix_path = "incoterm_matrix.xlsx"
-
-# Load once
-cost_items_df = pd.read_excel(cost_items_path)
-incoterm_df = pd.read_excel(incoterm_matrix_path)
-
-# Calculate
-additional_costs_per_ton = calculate_incoterm_costs(
-    incoterm=incoterm,
-    buy_price_eur=trade_data["buy_price"],
-    gbp_to_eur=gbp_eur_rate,
-    cost_items_df=cost_items_df,
-    incoterm_df=incoterm_df
-)
 
 selected_carrier = carrier if carrier != "—" else None
 warehouse_options = [
@@ -242,6 +213,36 @@ trade_data = {
     "target_margin": target_margin,
     "sell_price": sell_price
 }
+
+trade_data = {
+    "volume": volume,
+    "buy_term": buy_term,
+    "buy_price": buy_price,
+    "port": port,
+    "destination": destination,
+    "carrier": selected_carrier,
+    "payment_days": payment_days,
+    "is_reverse": is_reverse,
+    "target_margin": target_margin,
+    "sell_price": sell_price
+}
+
+incoterm = trade_data["buy_term"]  # EXW / FOB / etc.
+cost_items_path = "cost_items.xlsx"
+incoterm_matrix_path = "incoterm_matrix.xlsx"
+
+# Load once
+cost_items_df = pd.read_excel(cost_items_path)
+incoterm_df = pd.read_excel(incoterm_matrix_path)
+
+# Calculate
+additional_costs_per_ton = calculate_incoterm_costs(
+    incoterm=incoterm,
+    buy_price_eur=trade_data["buy_price"],
+    gbp_to_eur=gbp_eur_rate,
+    cost_items_df=cost_items_df,
+    incoterm_df=incoterm_df
+)
 
 def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, margin, mode):
     prompt = f"""
