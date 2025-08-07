@@ -358,6 +358,7 @@ if freight_per_ton is not None:
 
         if selected_warehouse in warehouse_df.columns:
             warehouse_costs = warehouse_df[selected_warehouse].dropna()
+            warehouse_costs = warehouse_costs * gbp_eur_rate
             warehouse_total_per_ton = warehouse_costs.sum()
         else:
             st.warning(f"No cost data found for selected warehouse: {selected_warehouse}")
