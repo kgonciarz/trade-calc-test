@@ -143,7 +143,7 @@ carrier_options = [
 st.sidebar.title("📦 Trade Parameters")
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
 buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
-buy_price = st.sidebar.number_input("Buy Price (€)", value=1200.0, step=10.0, format="%.2f")
+buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
 carrier = st.sidebar.selectbox(
@@ -194,7 +194,7 @@ if is_reverse:
     target_margin = st.sidebar.number_input("Target Margin (€ per ton)", min_value=0.0, value=200.0, step=10.0)
     sell_price = None
 else:
-    sell_price = st.sidebar.number_input("Sell Price (€ per ton)", min_value=0.0, value=1400.0, step=10.0)
+    sell_price = st.sidebar.number_input("Sell Price (€ per ton)", min_value=0.0, value=8500.0, step=10.0)
     target_margin = None
 
 
