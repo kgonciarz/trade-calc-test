@@ -35,6 +35,8 @@ eur_usd_rate = get_fx_rate("EURUSD=X") or 1.08
 usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93
 gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17
 
+fx_rate = usd_eur_rate
+
 def convert_gbp_to_eur(amount_gbp, fx_rate):
     return amount_gbp * fx_rate
 
@@ -288,7 +290,7 @@ if os.path.exists(excel_path):
     df_excel.columns = [str(col).strip().upper() for col in df_excel.columns]
     df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)]
     df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] = (
-        df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"].astype(float) * fx_rate
+    df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"].astype(float) * fx_rate
     )
     df_excel = df_excel[["POL", "POD", "SHIPPING LINE", "ALL_IN"]]
     df_excel = df_excel.dropna(subset=["POL", "POD", "SHIPPING LINE", "ALL_IN"])
