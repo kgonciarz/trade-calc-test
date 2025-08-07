@@ -137,6 +137,18 @@ carrier_options = [
     "ARKAS","ONE","CMA","HAPAG","MAERSK","MSC","OOCL","STS_MSC","STS_GRIMALDI","STS_OOCL","STS_HAPAG-LLOYD",
     "STS_ONE","STS_PIL","STS_MESSINA","STS_CMA CGM","STS_MAERSK","PIL"]
 
+trade_data = {
+    "volume": volume,
+    "buy_term": buy_term,
+    "buy_price": buy_price,
+    "port": port,
+    "destination": destination,
+    "carrier": selected_carrier,
+    "payment_days": payment_days,
+    "is_reverse": is_reverse,
+    "target_margin": target_margin,
+    "sell_price": sell_price
+}
 
 st.sidebar.title("📦 Trade Parameters")
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
@@ -348,7 +360,7 @@ if freight_per_ton is not None:
     else:
         st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
 
-        
+
 cost_breakdown_df = get_cost_breakdown_df(incoterm, trade_data["buy_price"], gbp_eur_rate, cost_items_df, incoterm_df)
 
 with st.expander("📊 Incoterm-Based Cost Breakdown"):
