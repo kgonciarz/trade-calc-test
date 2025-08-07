@@ -181,8 +181,8 @@ if payment_days > 0:
     annual_rate = st.sidebar.number_input("Annual Financing Rate (%)", min_value=0.0, value=10.0, step=0.5) / 100
 else:
     annual_rate = 0.0
-buy_currency = st.sidebar.selectbox("Buy Price Currency", ["EUR", "USD"], index=0)
-sell_currency = st.sidebar.selectbox("Sell Price Currency", ["EUR", "USD"], index=0)
+buy_currency = st.sidebar.selectbox("Buy Price Currency", ["EUR", "USD", "GBP"], index=0)
+sell_currency = st.sidebar.selectbox("Sell Price Currency", ["EUR", "USD", "GBP"], index=0)
 calc_type = st.sidebar.selectbox(
     "Calculation Type",
     ["Sell Price Calculation", "Margin Calculation"]
@@ -198,11 +198,18 @@ else:
     target_margin = None
 
 
+# Convert buy price to EUR
 if buy_currency == "USD":
-    buy_price *= fx_rate
+    buy_price *= usd_eur_rate
+elif buy_currency == "GBP":
+    buy_price *= gbp_eur_rate
 
+# Convert sell price to EUR
 if sell_currency == "USD":
-    sell_price *= fx_rate
+    sell_price *= usd_eur_rate
+elif sell_currency == "GBP":
+    sell_price *= gbp_eur_rate
+
 trade_data = {
     "volume": volume,
     "buy_term": buy_term,
