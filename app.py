@@ -370,6 +370,10 @@ cost_breakdown_df = get_cost_breakdown_df(incoterm, trade_data["buy_price"], gbp
 
 with st.expander("📊 Incoterm-Based Cost Breakdown"):
     st.dataframe(cost_breakdown_df)
+    # Show subtotal for incoterm-based costs
+    incoterm_total_cost = cost_breakdown_df["EUR/ton"].sum()
+    st.write(f"🚢 Incoterm-based cost per ton: **€{round(incoterm_total_cost, 2)}**")
+
 
 # 🔄 Dodanie kosztu magazynowego do całkowitego kosztu
     cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton + additional_costs_per_ton
