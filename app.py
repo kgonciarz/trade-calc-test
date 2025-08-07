@@ -13,14 +13,109 @@ st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs")
 
-def get_fx_rate(pair="EURUSD=X"):
+# Load incoterm applicability (1/0 matrix)
+incoterm_matrix_path = "incoterm_matrix.xlsx"
+incoterm_df = pd.read_excel(incoterm_matrix_path)
+
+# Load cost values
+cost_items_path = "cost_items.xlsx"
+cost_items_df = pd.read_excel(cost_items_path)
+
+
+def get_fx_rate(pair):
+    import yfinance as yf
     ticker = yf.Ticker(pair)
     data = ticker.history(period="1d")
     if not data.empty:
         return round(data["Close"][-1], 4)
     return None
-#fx rates
-fx_rate = get_fx_rate("USDEUR=X") or 0.93
+
+# Get FX rates
+eur_usd_rate = get_fx_rate("EURUSD=X") or 1.08
+usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93
+gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17
+
+def convert_gbp_to_eur(amount_gbp, fx_rate):
+    return amount_gbp * fx_rate
+
+def calculate_incoterm_costs(incoterm, buy_price_eur, gbp_to_eur, cost_items_df, incoterm_df):
+    total_cost_eur = 0.0
+
+    # Clean up column names
+    cost_items_df.columns = cost_items_df.columns.str.strip()
+    incoterm_df.columns = incoterm_df.columns.str.strip()
+
+    # Merge incoterm applicability with values
+    merged_df = pd.merge(
+        incoterm_df[["Cost Item", incoterm]],
+        cost_items_df,
+        on="Cost Item",
+        how="left"
+    )
+
+    for _, row in merged_df.iterrows():
+        if row[incoterm] != 1:
+            continue  # skip if not used under this incoterm
+
+        value = row["Value"]
+        cost_type = str(row["Type"]).lower()
+        unit = str(row["Unit"]).upper()
+
+        if pd.isna(value):
+            continue
+
+        # Convert GBP → EUR if necessary
+        if "GBP" in unit:
+            value *= gbp_to_eur
+
+        # Apply logic
+        if cost_type == "fixed":
+            cost = value
+        elif cost_type == "percent":
+            cost = value * buy_price_eur / 100
+        else:
+            cost = 0
+
+        total_cost_eur += cost
+
+    return total_cost_eur
+
+def get_cost_breakdown_df(incoterm, buy_price_eur, gbp_to_eur, cost_items_df, incoterm_df):
+    rows = []
+    merged_df = pd.merge(
+        incoterm_df[["Cost Item", incoterm]],
+        cost_items_df,
+        on="Cost Item",
+        how="left"
+    )
+
+    for _, row in merged_df.iterrows():
+        if row[incoterm] != 1:
+            continue
+
+        value = row["Value"]
+        cost_type = str(row["Type"]).lower()
+        unit = str(row["Unit"]).upper()
+        item = row["Cost Item"]
+
+        if pd.isna(value):
+            continue
+
+        # Convert
+        orig_value = value
+        if "GBP" in unit:
+            value *= gbp_to_eur
+
+        if cost_type == "fixed":
+            cost = value
+        elif cost_type == "percent":
+            cost = value * buy_price_eur / 100
+        else:
+            cost = 0
+
+        rows.append({"Cost Item": item, "EUR/ton": round(cost, 2)})
+
+    return pd.DataFrame(rows)
 
 #setting up sidebar with trade parameters
 pol_options = [
@@ -45,7 +140,7 @@ carrier_options = [
 
 st.sidebar.title("📦 Trade Parameters")
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
-buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB"], index=0)
+buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
 buy_price = st.sidebar.number_input("Buy Price (€)", value=1200.0, step=10.0, format="%.2f")
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
@@ -53,6 +148,24 @@ carrier = st.sidebar.selectbox(
     "Shipping Line (optional)", 
     ["Auto (cheapest)"] + sorted(carrier_options)
 )
+
+incoterm = trade_data["buy_term"]  # EXW / FOB / etc.
+cost_items_path = "cost_items.xlsx"
+incoterm_matrix_path = "incoterm_matrix.xlsx"
+
+# Load once
+cost_items_df = pd.read_excel(cost_items_path)
+incoterm_df = pd.read_excel(incoterm_matrix_path)
+
+# Calculate
+additional_costs_per_ton = calculate_incoterm_costs(
+    incoterm=incoterm,
+    buy_price_eur=trade_data["buy_price"],
+    gbp_to_eur=gbp_eur_rate,
+    cost_items_df=cost_items_df,
+    incoterm_df=incoterm_df
+)
+
 selected_carrier = carrier if carrier != "—" else None
 warehouse_options = [
     "STEINWEG AMSTERDAM",
@@ -235,8 +348,14 @@ if freight_per_ton is not None:
     else:
         st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
 
+        
+cost_breakdown_df = get_cost_breakdown_df(incoterm, trade_data["buy_price"], gbp_eur_rate, cost_items_df, incoterm_df)
+
+with st.expander("📊 Incoterm-Based Cost Breakdown"):
+    st.dataframe(cost_breakdown_df)
+
 # 🔄 Dodanie kosztu magazynowego do całkowitego kosztu
-    cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton
+    cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton + additional_costs_per_ton
 
 # 💬 Pokazanie kosztów magazynu
     with st.expander("📦 Warehouse Cost Breakdown"):
