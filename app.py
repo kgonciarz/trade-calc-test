@@ -152,6 +152,13 @@ carrier_options = [
 
 st.sidebar.title("📦 Trade Parameters")
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
+buying_diff = st.sidebar.number_input(
+    "Buying Diff (€ per ton)",
+    min_value=0.0,
+    value=0.0,
+    step=10.0,
+    format="%.2f"
+)
 buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
 buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
@@ -382,6 +389,16 @@ if freight_per_ton is not None:
 
 cost_breakdown_df = get_cost_breakdown_df(incoterm, trade_data["buy_price"], gbp_eur_rate, cost_items_df, incoterm_df)
 
+# 👉 Append the manual Buying Diff as part of the Incoterm breakdown
+if buying_diff and buying_diff > 0:
+    cost_breakdown_df = pd.concat(
+        [
+            cost_breakdown_df,
+            pd.DataFrame([{"Cost Item": "BUYING DIFF (manual)", "EUR/ton": round(buying_diff, 2)}])
+        ],
+        ignore_index=True
+    )
+
 with st.expander("📊 Incoterm-Based Cost Breakdown"):
     st.dataframe(cost_breakdown_df)
     # Show subtotal for incoterm-based costs
@@ -390,7 +407,7 @@ with st.expander("📊 Incoterm-Based Cost Breakdown"):
 
 
 # 🔄 Dodanie kosztu magazynowego do całkowitego kosztu
-    cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton + additional_costs_per_ton
+    cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton + additional_costs_per_ton + buying_diff
 
 # 💬 Pokazanie kosztów magazynu
     with st.expander("📦 Warehouse Cost Breakdown"):
