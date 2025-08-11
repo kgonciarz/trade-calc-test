@@ -222,12 +222,6 @@ if buy_currency == "USD":
 elif buy_currency == "GBP":
     buy_price *= gbp_eur_rate
 
-# Convert sell price to EUR
-if sell_currency == "USD":
-    sell_price *= usd_eur_rate
-elif sell_currency == "GBP":
-    sell_price *= gbp_eur_rate
-
 # Convert sell price to EUR (only if not None)
 if sell_price is not None:
     if sell_currency == "USD":
