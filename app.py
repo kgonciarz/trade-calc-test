@@ -32,8 +32,8 @@ gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17
 
 fx_rate = usd_eur_rate
 
-def convert_gbp_to_eur(amount_gbp, fx_rate):
-    return amount_gbp * fx_rate
+def convert_gbp_to_eur(amount_gbp):
+    return amount_gbp * gbp_eur_rate
 
 def calculate_incoterm_costs(incoterm, buy_price_eur, gbp_to_eur, cost_items_df, incoterm_df):
     total_cost_eur = 0.0
@@ -76,6 +76,21 @@ def calculate_incoterm_costs(incoterm, buy_price_eur, gbp_to_eur, cost_items_df,
         total_cost_eur += cost
 
     return total_cost_eur
+
+def choose_trade_fx(buy_ccy: str, sell_ccy: str):
+    """
+    Pick a single FX rate + label to summarize the main currency risk
+    for the AI commentary. If both are EUR, return 1.0.
+    """
+    buy_ccy = (buy_ccy or "EUR").upper()
+    sell_ccy = (sell_ccy or "EUR").upper()
+
+    if "USD" in (buy_ccy, sell_ccy):
+        return usd_eur_rate, "USD→EUR"
+    if "GBP" in (buy_ccy, sell_ccy):
+        return gbp_eur_rate, "GBP→EUR"
+    # default (EUR only or unknown)
+    return 1.0, "EUR"
 
 def get_cost_breakdown_df(incoterm, buy_price_eur, gbp_to_eur, cost_items_df, incoterm_df):
     rows = []
@@ -213,6 +228,8 @@ if sell_currency == "USD":
 elif sell_currency == "GBP":
     sell_price *= gbp_eur_rate
 
+trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
+
 trade_data = {
     "volume": volume,
     "buy_term": buy_term,
@@ -254,7 +271,7 @@ You are a commodity market analyst. Based on the following trade parameters:
 - Selling price: {sell_price} EUR/ton
 - Freight cost: {freight_cost} EUR/ton
 - Cocoa market price: {cocoa_price} EUR/ton
-- FX rate (USD/EUR): {fx_rate}
+- FX rate ({trade_fx_label}): {trade_fx_rate}
 - Calculated margin: {margin:.2f}%
 
 Please provide:
@@ -437,7 +454,8 @@ if trade_data["is_reverse"]:
         sell_price=round(required_sell_price, 2),
         freight_cost=round(freight_per_ton, 2),
         cocoa_price=cocoa_market_price,
-        fx_rate=round(fx_rate, 4),
+        fx_rate=round(trade_fx_rate, 4),
+        fx_label=trade_fx_label,
         margin=margin_percent,
         mode="Target Margin Mode"
     )
@@ -465,7 +483,8 @@ if freight_per_ton is not None and not trade_data["is_reverse"] and trade_data["
         sell_price=round(trade_data["sell_price"], 2),
         freight_cost=round(freight_per_ton, 2),
         cocoa_price=cocoa_market_price,
-        fx_rate=round(fx_rate, 4),
+        fx_rate=round(trade_fx_rate, 4),
+        fx_label=trade_fx_label,
         margin=margin_percent,
         mode="Margin Calculation Mode"
     )
