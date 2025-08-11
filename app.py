@@ -472,7 +472,6 @@ else:
         # AI analysis block
         margin_percent = (margin_per_ton / trade_data["sell_price"]) * 100 if trade_data["sell_price"] else 0
         cocoa_market_price = get_cocoa_price() or 3500  # fallback to 3500 if None
-        fx_rate = get_fx_rate("USDEUR=X") or 0.93
 
 
 if freight_per_ton is not None and not trade_data["is_reverse"] and trade_data["sell_price"] is not None:
