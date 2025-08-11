@@ -262,7 +262,7 @@ additional_costs_per_ton = calculate_incoterm_costs(
     incoterm_df=incoterm_df
 )
 
-def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, margin, mode):
+def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, fx_label, margin, mode):
     prompt = f"""
 You are a commodity market analyst. Based on the following trade parameters:
 
@@ -271,7 +271,7 @@ You are a commodity market analyst. Based on the following trade parameters:
 - Selling price: {sell_price} EUR/ton
 - Freight cost: {freight_cost} EUR/ton
 - Cocoa market price: {cocoa_price} EUR/ton
-- FX rate ({trade_fx_label}): {trade_fx_rate}
+- FX rate ({fx_label}): {fx_rate}
 - Calculated margin: {margin:.2f}%
 
 Please provide:
@@ -279,7 +279,6 @@ Please provide:
 2. A short list of potential risks (e.g., FX volatility, supply/demand shifts, freight rate changes).
 3. 1 or 2 concise and practical recommendations for the trader based on these figures.
 """
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -287,10 +286,10 @@ Please provide:
             max_tokens=300,
             temperature=0.7
         )
-
         return response.choices[0].message.content
     except Exception as e:
         return f"Error generating AI comment: {str(e)}"
+
     
 
 # importing the Excel file with freight costs and creating a dictionary of costs
