@@ -8,6 +8,7 @@ import yfinance as yf
 from datetime import datetime
 from datetime import timezone
 from zoneinfo import ZoneInfo
+
 now_ch = datetime.now(ZoneInfo("Europe/Zurich"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -177,7 +178,9 @@ else:
     annual_rate = 0.0
 buy_currency = st.sidebar.selectbox("Buy Price Currency", ["EUR", "USD", "GBP"], index=0)
 sell_currency = st.sidebar.selectbox("Sell Price Currency", ["EUR", "USD", "GBP"], index=0)
-st.sidebar.caption(f"Rates pulled: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.sidebar.caption(
+    f"Rates pulled: {datetime.now(ZoneInfo('Europe/Zurich')).strftime('%Y-%m-%d %H:%M:%S')}"
+)
 st.sidebar.markdown("### 💱 FX Rates (Live)")
 st.sidebar.markdown(f"- **EUR/USD**: {eur_usd_rate}")
 st.sidebar.markdown(f"- **USD/EUR**: {usd_eur_rate}")
