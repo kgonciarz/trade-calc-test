@@ -6,21 +6,14 @@ import pandas as pd
 from dotenv import load_dotenv
 import yfinance as yf
 from datetime import datetime
-
-
+from datetime import timezone
+from zoneinfo import ZoneInfo
+now_ch = datetime.now(ZoneInfo("Europe/Zurich"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs")
-
-# Load incoterm applicability (1/0 matrix)
-incoterm_matrix_path = "incoterm_matrix.xlsx"
-incoterm_df = pd.read_excel(incoterm_matrix_path)
-
-# Load cost values
-cost_items_path = "cost_items.xlsx"
-cost_items_df = pd.read_excel(cost_items_path)
 
 
 def get_fx_rate(pair):
@@ -230,26 +223,15 @@ trade_data = {
     "sell_price": sell_price
 }
 
-trade_data = {
-    "volume": volume,
-    "buy_term": buy_term,
-    "buy_price": buy_price,
-    "port": port,
-    "destination": destination,
-    "carrier": selected_carrier,
-    "payment_days": payment_days,
-    "is_reverse": is_reverse,
-    "target_margin": target_margin,
-    "sell_price": sell_price
-}
 
 incoterm = trade_data["buy_term"]  # EXW / FOB / etc.
-cost_items_path = "cost_items.xlsx"
+# Load incoterm applicability (1/0 matrix)
 incoterm_matrix_path = "incoterm_matrix.xlsx"
-
-# Load once
-cost_items_df = pd.read_excel(cost_items_path)
 incoterm_df = pd.read_excel(incoterm_matrix_path)
+
+# Load cost values
+cost_items_path = "cost_items.xlsx"
+cost_items_df = pd.read_excel(cost_items_path)
 
 # Calculate
 additional_costs_per_ton = calculate_incoterm_costs(
@@ -295,8 +277,6 @@ Please provide:
 import os
 excel_path = "logistics_freight_trade_calc.xlsx"
 freight_costs = {}
-warehouse_excel_path = "warehouse_costs.xlsx"
-warehouse_df = pd.read_excel(warehouse_excel_path, index_col=0)
 
 
 if os.path.exists(excel_path):
