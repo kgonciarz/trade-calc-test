@@ -228,6 +228,13 @@ if sell_currency == "USD":
 elif sell_currency == "GBP":
     sell_price *= gbp_eur_rate
 
+# Convert sell price to EUR (only if not None)
+if sell_price is not None:
+    if sell_currency == "USD":
+        sell_price *= usd_eur_rate
+    elif sell_currency == "GBP":
+        sell_price *= gbp_eur_rate
+
 trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
 
 trade_data = {
