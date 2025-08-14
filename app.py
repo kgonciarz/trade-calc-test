@@ -229,6 +229,8 @@ if sell_price is not None:
 
 trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
 
+buy_term = "CUSTOM"
+
 trade_data = {
     "volume": volume,
     "buy_term": buy_term,
