@@ -35,47 +35,6 @@ fx_rate = usd_eur_rate
 def convert_gbp_to_eur(amount_gbp):
     return amount_gbp * gbp_eur_rate
 
-def calculate_incoterm_costs(incoterm, buy_price_eur, gbp_to_eur, cost_items_df, incoterm_df):
-    total_cost_eur = 0.0
-
-    # Clean up column names
-    cost_items_df.columns = cost_items_df.columns.str.strip()
-    incoterm_df.columns = incoterm_df.columns.str.strip()
-
-    # Merge incoterm applicability with values
-    merged_df = pd.merge(
-        incoterm_df[["Cost Item", incoterm]],
-        cost_items_df,
-        on="Cost Item",
-        how="left"
-    )
-
-    for _, row in merged_df.iterrows():
-        if row[incoterm] != 1:
-            continue  # skip if not used under this incoterm
-
-        value = row["Value"]
-        cost_type = str(row["Type"]).lower()
-        unit = str(row["Unit"]).upper()
-
-        if pd.isna(value):
-            continue
-
-        # Convert GBP → EUR if necessary
-        if "GBP" in unit:
-            value *= gbp_to_eur
-
-        # Apply logic
-        if cost_type == "fixed":
-            cost = value
-        elif cost_type == "percent":
-            cost = value * buy_price_eur / 100
-        else:
-            cost = 0
-
-        total_cost_eur += cost
-
-    return total_cost_eur
 
 def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     """
@@ -92,42 +51,6 @@ def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     # default (EUR only or unknown)
     return 1.0, "EUR"
 
-def get_cost_breakdown_df(incoterm, buy_price_eur, gbp_to_eur, cost_items_df, incoterm_df):
-    rows = []
-    merged_df = pd.merge(
-        incoterm_df[["Cost Item", incoterm]],
-        cost_items_df,
-        on="Cost Item",
-        how="left"
-    )
-
-    for _, row in merged_df.iterrows():
-        if row[incoterm] != 1:
-            continue
-
-        value = row["Value"]
-        cost_type = str(row["Type"]).lower()
-        unit = str(row["Unit"]).upper()
-        item = row["Cost Item"]
-
-        if pd.isna(value):
-            continue
-
-        # Convert
-        orig_value = value
-        if "GBP" in unit:
-            value *= gbp_to_eur
-
-        if cost_type == "fixed":
-            cost = value
-        elif cost_type == "percent":
-            cost = value * buy_price_eur / 100
-        else:
-            cost = 0
-
-        rows.append({"Cost Item": item, "EUR/ton": round(cost, 2)})
-
-    return pd.DataFrame(rows)
 
 #setting up sidebar with trade parameters
 pol_options = [
@@ -148,6 +71,54 @@ destination_options = [
 carrier_options = [
     "ARKAS","ONE","CMA","HAPAG","MAERSK","MSC","OOCL","STS_MSC","STS_GRIMALDI","STS_OOCL","STS_HAPAG-LLOYD",
     "STS_ONE","STS_PIL","STS_MESSINA","STS_CMA CGM","STS_MAERSK","PIL"]
+st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
+# LID switch → 400 GBP/t if YES else 0
+lid_yes = st.sidebar.checkbox("LID applies?", value=False)
+lid_eur = (400.0 * gbp_eur_rate) if lid_yes else 0.0
+
+# CERT PREMIUM (per ton)
+cert_premium_eur = money_input_eur("CERT PREMIUM", default=0.0, default_ccy="EUR")
+
+# DOCS COSTS (per ton)
+docs_costs_eur = money_input_eur("DOCS COSTS", default=0.0, default_ccy="EUR")
+
+# QUALITY CLAIM — often % of buy; give option for €/t or %
+qc_type = st.sidebar.selectbox("QUALITY CLAIM type", ["€/t", "% of buy"], index=0)
+if qc_type == "€/t":
+    quality_claim_eur = money_input_eur("QUALITY CLAIM", default=0.0, default_ccy="EUR")
+else:
+    qc_pct = percent_cost_from_buy("QUALITY CLAIM")
+    quality_claim_eur = (qc_pct/100.0) * buy_price
+
+# WEIGHT LOSS — usually % of buy
+wl_pct = percent_cost_from_buy("WEIGHT LOSS")
+weight_loss_eur = (wl_pct/100.0) * buy_price
+
+# QUALITY CONTROLE DEP/ARR (per ton)
+qc_dep_eur = money_input_eur("QUALITY CONTROLE DEP", default=0.0, default_ccy="EUR")
+qc_arr_eur = money_input_eur("QUALITY CONTROLE ARR", default=0.0, default_ccy="EUR")
+
+# ORIGIN AGENT / DESTINATION AGENT (per ton)
+origin_agent_eur = money_input_eur("ORIGIN AGENT", default=0.0, default_ccy="EUR")
+dest_agent_eur   = money_input_eur("DESTINATION AGENT", default=0.0, default_ccy="EUR")
+
+# FREIGHT — you can keep your auto-freight OR allow manual override
+use_manual_freight = st.sidebar.checkbox("Enter FREIGHT manually (override route table)?", value=False)
+if use_manual_freight:
+    freight_per_ton = money_input_eur("FREIGHT", default=0.0, default_ccy="EUR")
+# otherwise keep the freight_per_ton you already compute from your Excel routes
+
+# DRESSING (per ton)
+dressing_eur = money_input_eur("DRESSING", default=0.0, default_ccy="EUR")
+
+# FREIGHT CORRECTION (per ton)
+freight_correction_eur = money_input_eur("FREIGHT CORRECTION", default=0.0, default_ccy="EUR")
+
+# MARINE INSURANCE — keep simple €/t (you can later switch to % of cargo value)
+marine_insurance_eur = money_input_eur("MARINE INSURANCE", default=0.0, default_ccy="EUR")
+
+# STOCK INSURANCE — €/t
+stock_insurance_eur = money_input_eur("STOCK INSURANCE", default=0.0, default_ccy="EUR")
 
 
 st.sidebar.title("📦 Trade Parameters")
@@ -251,24 +222,18 @@ trade_data = {
     "sell_price": sell_price
 }
 
+def money_input_eur(label: str, default: float = 0.0, default_ccy: str = "EUR"):
+    ccy = st.sidebar.selectbox(f"{label} currency", ["EUR", "GBP"], index=(0 if default_ccy=="EUR" else 1), key=f"{label}_ccy")
+    val = st.sidebar.number_input(f"{label} ({ccy}/t)", min_value=0.0, value=float(default), step=10.0, format="%.2f", key=f"{label}_val")
+    # convert to EUR/t if needed
+    if ccy == "GBP":
+        return val * gbp_eur_rate
+    return val
 
-incoterm = trade_data["buy_term"]  # EXW / FOB / etc.
-# Load incoterm applicability (1/0 matrix)
-incoterm_matrix_path = "incoterm_matrix.xlsx"
-incoterm_df = pd.read_excel(incoterm_matrix_path)
+def percent_cost_from_buy(label: str):
+    pct = st.sidebar.number_input(f"{label} (% of buy price)", min_value=0.0, value=0.0, step=0.1, format="%.2f", key=f"{label}_pct")
+    return pct
 
-# Load cost values
-cost_items_path = "cost_items.xlsx"
-cost_items_df = pd.read_excel(cost_items_path)
-
-# Calculate
-additional_costs_per_ton = calculate_incoterm_costs(
-    incoterm=incoterm,
-    buy_price_eur=trade_data["buy_price"],
-    gbp_to_eur=gbp_eur_rate,
-    cost_items_df=cost_items_df,
-    incoterm_df=incoterm_df
-)
 
 def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rate, fx_label, margin, mode):
     prompt = f"""
@@ -387,7 +352,30 @@ if freight_per_ton is not None:
         st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
 
 
-cost_breakdown_df = get_cost_breakdown_df(incoterm, trade_data["buy_price"], gbp_eur_rate, cost_items_df, incoterm_df)
+manual_rows = [
+    {"Cost Item": "LID",                     "EUR/ton": round(lid_eur, 2)},
+    {"Cost Item": "CERT PREMIUM",           "EUR/ton": round(cert_premium_eur, 2)},
+    {"Cost Item": "DOCS COSTS",             "EUR/ton": round(docs_costs_eur, 2)},
+    {"Cost Item": "QUALITY CLAIM",          "EUR/ton": round(quality_claim_eur, 2)},
+    {"Cost Item": "WEIGHT LOSS",            "EUR/ton": round(weight_loss_eur, 2)},
+    {"Cost Item": "QUALITY CONTROLE DEP",   "EUR/ton": round(qc_dep_eur, 2)},
+    {"Cost Item": "QUALITY CONTROLE ARR",   "EUR/ton": round(qc_arr_eur, 2)},
+    {"Cost Item": "ORIGIN AGENT",           "EUR/ton": round(origin_agent_eur, 2)},
+    {"Cost Item": "DESTINATION AGENT",      "EUR/ton": round(dest_agent_eur, 2)},
+    {"Cost Item": "FREIGHT",                "EUR/ton": round(freight_per_ton or 0.0, 2)},
+    {"Cost Item": "DRESSING",               "EUR/ton": round(dressing_eur, 2)},
+    {"Cost Item": "FREIGHT CORRECTION",     "EUR/ton": round(freight_correction_eur, 2)},
+    {"Cost Item": "MARINE INSURANCE",       "EUR/ton": round(marine_insurance_eur, 2)},
+    {"Cost Item": "STOCK INSURANCE",        "EUR/ton": round(stock_insurance_eur, 2)},
+]
+
+manual_df = pd.DataFrame(manual_rows)
+manual_subtotal = manual_df["EUR/ton"].sum()
+
+with st.expander("📊 Manual Cost Breakdown (per ton)"):
+    st.dataframe(manual_df)
+    st.write(f"🧮 Manual costs subtotal: **€{round(manual_subtotal, 2)}**")
+
 
 # 👉 Append the manual Buying Diff as part of the Incoterm breakdown
 if buying_diff and buying_diff > 0:
@@ -407,7 +395,19 @@ with st.expander("📊 Incoterm-Based Cost Breakdown"):
 
 
 # 🔄 Dodanie kosztu magazynowego do całkowitego kosztu
-    cost_per_ton = trade_data["buy_price"] + freight_per_ton + warehouse_total_per_ton + additional_costs_per_ton + buying_diff
+# Warehouse total you already compute (in EUR/t): warehouse_total_per_ton
+# Financing is applied AFTER assembling the base landed cost (buy + all costs)
+base_cost_per_ton = buy_price + warehouse_total_per_ton + manual_subtotal
+
+# Financing (if any)
+if trade_data["payment_days"] > 0:
+    financing_per_ton = (annual_rate / 365) * trade_data["payment_days"] * base_cost_per_ton
+    cost_per_ton = base_cost_per_ton + financing_per_ton
+    st.write(f"💳 Financing cost per ton: €{round(financing_per_ton, 2)}")
+else:
+    cost_per_ton = base_cost_per_ton
+
+st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
 
 # 💬 Pokazanie kosztów magazynu
     with st.expander("📦 Warehouse Cost Breakdown"):
