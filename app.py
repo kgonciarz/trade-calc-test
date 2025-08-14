@@ -410,47 +410,47 @@ else:
 st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
 
 # 💬 Pokazanie kosztów magazynu
-    with st.expander("📦 Warehouse Cost Breakdown"):
-        st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
+with st.expander("📦 Warehouse Cost Breakdown"):
+    st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
 
-        if warehouse_costs is not None:
+    if warehouse_costs is not None:
         # Konwertuj na DataFrame i zaokrąglij wartości do 2 miejsc
-            df_display = warehouse_costs.to_frame(name=selected_warehouse).round(2)
+        df_display = warehouse_costs.to_frame(name=selected_warehouse).round(2)
 
         # Stylizacja: wyśrodkowanie liczb + jasne tło nagłówka
-            styled_table = (
-                df_display
-                .style
-                .format(precision=2)  # jeszcze raz zabezpieczenie zaokrąglenia
-                .set_properties(**{'text-align': 'left'})
-                .set_table_styles([{
-                    'selector': 'th',
-                    'props': [('background-color', '#f0f0f0'), ('text-align', 'left')]
-                }])
-            )
+        styled_table = (
+            df_display
+            .style
+            .format(precision=2)  # jeszcze raz zabezpieczenie zaokrąglenia
+            .set_properties(**{'text-align': 'left'})
+            .set_table_styles([{
+                'selector': 'th',
+                'props': [('background-color', '#f0f0f0'), ('text-align', 'left')]
+            }])
+        )
 
         # Styl działa tylko z write, nie z dataframe
-            st.write(styled_table)
-        else:
-            st.write("No detailed cost breakdown available.")
+        st.write(styled_table)
+    else:
+        st.write("No detailed cost breakdown available.")
 
-        st.write(f"📦 Warehouse cost per ton: **€{round(warehouse_total_per_ton, 2)}**")
+    st.write(f"📦 Warehouse cost per ton: **€{round(warehouse_total_per_ton, 2)}**")
 
 
         # Financing cost calculation
-    if trade_data["payment_days"] > 0:
+if trade_data["payment_days"] > 0:
         financing_per_ton = (annual_rate / 365) * trade_data["payment_days"] * cost_per_ton
         cost_per_ton += financing_per_ton
         st.write(f"💳 Financing cost per ton: €{round(financing_per_ton, 2)}")
         st.write(f"💼 Updated total landed cost per ton (with financing): **€{round(cost_per_ton, 2)}**")
         st.caption(f"Based on {trade_data['payment_days']} days @ {round(annual_rate * 100, 1)}% annual interest")
-    else:
+else:
         st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
 
 
-    st.write(f"📦 Buy price per ton: €{trade_data['buy_price']}")
-    st.write(f"🚢 Freight per ton: €{freight_per_ton}")
-    st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
+st.write(f"📦 Buy price per ton: €{trade_data['buy_price']}")
+st.write(f"🚢 Freight per ton: €{freight_per_ton}")
+st.write(f"💼 Total landed cost per ton: **€{round(cost_per_ton, 2)}**")
 
 if trade_data["is_reverse"]:
     # Target margin given → calculate required sell price
