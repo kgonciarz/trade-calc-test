@@ -31,7 +31,7 @@ usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93
 gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17
 
 fx_rate = usd_eur_rate
-buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
+
 def convert_gbp_to_eur(amount_gbp):
     return amount_gbp * gbp_eur_rate
 
@@ -88,6 +88,7 @@ st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
 
 st.sidebar.title("📦 Trade Parameters")
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
+buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
 buying_diff = st.sidebar.number_input(
     "Buying Diff (€ per ton)",
     min_value=0.0,
