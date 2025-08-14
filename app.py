@@ -50,6 +50,16 @@ def choose_trade_fx(buy_ccy: str, sell_ccy: str):
         return gbp_eur_rate, "GBP→EUR"
     # default (EUR only or unknown)
     return 1.0, "EUR"
+def money_input_eur(label, default=0.0, default_ccy="EUR"):
+    col1, col2 = st.sidebar.columns([2, 1])
+    amount = col1.number_input(f"{label} amount", min_value=0.0, value=default, step=10.0, format="%.2f")
+    ccy = col2.selectbox(f"{label} currency", ["EUR", "GBP", "USD"], index=["EUR", "GBP", "USD"].index(default_ccy))
+    
+    if ccy == "GBP":
+        return amount * gbp_eur_rate
+    elif ccy == "USD":
+        return amount * usd_eur_rate
+    return amount
 
 
 #setting up sidebar with trade parameters
