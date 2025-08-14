@@ -35,6 +35,9 @@ fx_rate = usd_eur_rate
 def convert_gbp_to_eur(amount_gbp):
     return amount_gbp * gbp_eur_rate
 
+def percent_cost_from_buy(label, buy_price_eur, default_pct=0.0):
+    pct = st.sidebar.number_input(f"{label} (% of buy price)", min_value=0.0, value=default_pct, step=0.1, format="%.2f")
+    return (pct / 100) * buy_price_eur
 
 def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     """
@@ -82,6 +85,25 @@ carrier_options = [
     "ARKAS","ONE","CMA","HAPAG","MAERSK","MSC","OOCL","STS_MSC","STS_GRIMALDI","STS_OOCL","STS_HAPAG-LLOYD",
     "STS_ONE","STS_PIL","STS_MESSINA","STS_CMA CGM","STS_MAERSK","PIL"]
 st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
+
+st.sidebar.title("📦 Trade Parameters")
+volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
+buying_diff = st.sidebar.number_input(
+    "Buying Diff (€ per ton)",
+    min_value=0.0,
+    value=0.0,
+    step=10.0,
+    format="%.2f"
+)
+buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
+buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
+port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
+destination = st.sidebar.selectbox("Destination", sorted(destination_options))
+carrier = st.sidebar.selectbox(
+    "Shipping Line (optional)", 
+    ["Auto (cheapest)"] + sorted(carrier_options)
+)
+
 # LID switch → 400 GBP/t if YES else 0
 lid_yes = st.sidebar.checkbox("LID applies?", value=False)
 lid_eur = (400.0 * gbp_eur_rate) if lid_yes else 0.0
@@ -131,23 +153,7 @@ marine_insurance_eur = money_input_eur("MARINE INSURANCE", default=0.0, default_
 stock_insurance_eur = money_input_eur("STOCK INSURANCE", default=0.0, default_ccy="EUR")
 
 
-st.sidebar.title("📦 Trade Parameters")
-volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
-buying_diff = st.sidebar.number_input(
-    "Buying Diff (€ per ton)",
-    min_value=0.0,
-    value=0.0,
-    step=10.0,
-    format="%.2f"
-)
-buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
-buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
-port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
-destination = st.sidebar.selectbox("Destination", sorted(destination_options))
-carrier = st.sidebar.selectbox(
-    "Shipping Line (optional)", 
-    ["Auto (cheapest)"] + sorted(carrier_options)
-)
+
 
 
 selected_carrier = carrier if carrier != "—" else None
