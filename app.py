@@ -38,6 +38,10 @@ def convert_gbp_to_eur(amount_gbp):
 def percent_cost_from_buy(label, buy_price_eur, default_pct=0.0):
     pct = st.sidebar.number_input(f"{label} (% of buy price)", min_value=0.0, value=default_pct, step=0.1, format="%.2f")
     return (pct / 100) * buy_price_eur
+def percent_cost_from_buy(label, default_pct=0.0):
+    return st.sidebar.number_input(
+        f"{label} (% of buy price)", min_value=0.0, value=default_pct, step=0.1, format="%.2f"
+    )
 
 def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     """
