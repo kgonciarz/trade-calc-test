@@ -31,7 +31,7 @@ usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93
 gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17
 
 fx_rate = usd_eur_rate
-
+buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
 def convert_gbp_to_eur(amount_gbp):
     return amount_gbp * gbp_eur_rate
 
@@ -95,8 +95,7 @@ buying_diff = st.sidebar.number_input(
     step=10.0,
     format="%.2f"
 )
-buy_term = st.sidebar.selectbox("Buy Term", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], index=0)
-buy_price = st.sidebar.number_input("Buy Price (€)", value=7500.0, step=10.0, format="%.2f")
+
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
 carrier = st.sidebar.selectbox(
