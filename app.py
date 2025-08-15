@@ -138,9 +138,9 @@ selected_carrier = None if carrier == "Auto (cheapest)" else carrier
 
 selected_warehouse = st.sidebar.selectbox("Warehouse", sorted(warehouse_options))
 
-payment_days = st.sidebar.number_input("Payment Terms (days)", min_value=0, value=0)
+payment_days = st.sidebar.number_input("Payment Terms (days)", min_value=0, value=30, step=1)
 if payment_days > 0:
-    annual_rate = st.sidebar.number_input("Annual Financing Rate (%)", min_value=0.0, value=10.0, step=0.5) / 100
+    annual_rate = st.sidebar.number_input("Annual Financing Rate (%)", min_value=0.0, value=8.5, step=0.5) / 100
 else:
     annual_rate = 0.0
 
