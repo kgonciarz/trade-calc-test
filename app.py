@@ -377,8 +377,8 @@ cocoa_market_price = get_cocoa_price() or 3500
 
 if is_reverse:
     # Given target margin → required sell
-    required_sell_price = cost_per_ton + target_margin
-    total_revenue = required_sell_price * volume
+    required_sell_price = cost_per_ton + target_margin - buying_diff
+    total_revenue = (required_sell_price + buying_diff) * volume
 
     st.success(f"Required sell price per ton: **€{required_sell_price:.2f}**")
     st.success(f"Total revenue to meet margin target: **€{total_revenue:.2f}**")
@@ -401,12 +401,13 @@ if is_reverse:
 
 else:
     # Given sell price → margin
-    margin_per_ton = (sell_price or 0.0) - cost_per_ton
+    margin_per_ton = ((sell_price or 0.0) + buying_diff) - cost_per_ton
     total_margin = margin_per_ton * volume
     st.success(f"Margin per ton: **€{margin_per_ton:.2f}**")
     st.success(f"Total margin: **€{total_margin:.2f}**")
 
-    margin_percent = (margin_per_ton / sell_price) * 100 if sell_price else 0.0
+    margin_percent = (margin_per_ton / (sell_price + buying_diff)) * 100 if sell_price else 0.0
+
 
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
