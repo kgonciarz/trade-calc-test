@@ -134,7 +134,7 @@ buying_diff = st.sidebar.number_input(
     step=10.0,
     format="%.2f",
 )
-base_buy_eur = buy_price
+base_buy = buy_price
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
@@ -189,10 +189,10 @@ if qc_type == "€/t":
     quality_claim_eur = money_input_gbp("QUALITY CLAIM")
 else:
     qc_pct = percent_cost_from_buy("QUALITY CLAIM")
-    quality_claim_eur = (qc_pct / 100.0) * base_buy_eur  # use base including Buying Diff
+    quality_claim_eur = (qc_pct / 100.0) * base_buy  # use base including Buying Diff
 
 wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
-weight_loss_eur = (wl_pct / 100.0) * base_buy_eur        # use base including Buying Diff
+weight_loss_eur = (wl_pct / 100.0) * base_buy        # use base including Buying Diff
 
 qc_dep_eur       = money_input_gbp("QUALITY CONTROLE DEP")
 qc_arr_eur       = money_input_gbp("QUALITY CONTROLE ARR")
@@ -311,23 +311,24 @@ manual_subtotal = float(manual_df["EUR/ton"].sum())
 
 with st.expander("📊 Manual Cost Breakdown (per ton)"):
     st.dataframe(manual_df)
-    st.write(f"🧮 Manual costs subtotal: **€{manual_subtotal:.2f}**")
+    st.write(f"🧮 Manual costs subtotal: **{base_currency_symbol}{manual_subtotal:.2f}**")
 
 # Show the base buy clearly
-st.markdown(f"**Base buy (incl. Buying Diff): €{base_buy_eur:.2f}/t**")
-st.caption(f"(Buy Price €{buy_price:.2f} + Buying Diff €{buying_diff:.2f})")
+st.markdown(f"**Base buy (incl. Buying Diff): {base_currency_symbol}{base_buy:.2f}/t**")
+st.caption(f"(Buy Price {base_currency_symbol}{buy_price:.2f} + Buying Diff {base_currency_symbol}{buying_diff:.2f})")
+
 
 # ---------- Containers estimate ----------
 containers_needed = round(volume / 25)
 st.markdown(f"🧱 Estimated containers: **{containers_needed} × 20'**")
 
 # ---------- Base landed cost & financing (apply ONCE) ----------
-base_cost_per_ton = base_buy_eur + manual_subtotal + warehouse_total_per_ton
+base_cost_per_ton = base_buy + manual_subtotal + warehouse_total_per_ton
 
 if payment_days > 0:
     financing_per_ton = (annual_rate / 365) * payment_days * base_cost_per_ton
     cost_per_ton = base_cost_per_ton + financing_per_ton
-    st.write(f"💳 Financing cost per ton: €{financing_per_ton:.2f}")
+    st.write(f"💳 Financing cost per ton: {base_currency_symbol}{financing_per_ton:.2f}")
     st.caption(f"Based on {payment_days} days @ {round(annual_rate * 100, 1)}% annual interest")
 else:
     cost_per_ton = base_cost_per_ton
@@ -335,7 +336,7 @@ else:
 st.write(f"💳 Financing cost per ton: {base_currency_symbol}{financing_per_ton:.2f}")
 st.write(f"📦 Buy price per ton ({buy_currency}): {base_currency_symbol}{buy_price:.2f}")
 st.write(f"➕ Buying Diff added to revenue ({buy_currency}): {base_currency_symbol}{buying_diff:.2f}")
-st.write(f"➡️ Base buy per ton ({buy_currency}): **{base_currency_symbol}{base_buy_eur:.2f}**")
+st.write(f"➡️ Base buy per ton ({buy_currency}): **{base_currency_symbol}{base_buy:.2f}**")
 st.write(f"🚢 Freight per ton ({buy_currency}): {base_currency_symbol}{(freight_per_ton or 0.0):.2f}")
 st.write(f"🏭 Warehouse cost per ton ({buy_currency}): {base_currency_symbol}{warehouse_total_per_ton:.2f}")
 st.write(f"💼 Total landed cost per ton ({buy_currency}): **{base_currency_symbol}{cost_per_ton:.2f}**")
@@ -411,7 +412,7 @@ if is_reverse:
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
         ai_comment = generate_ai_comment(
-            buy_price=round(base_buy_eur, 2),          # ✅ show base including Buying Diff
+            buy_price=round(base_buy, 2),          # ✅ show base including Buying Diff
             sell_price=round(required_sell_price, 2),
             freight_cost=round(freight_per_ton or 0.0, 2),
             cocoa_price=cocoa_market_price,
@@ -435,7 +436,7 @@ else:
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
         ai_comment = generate_ai_comment(
-            buy_price=round(base_buy_eur, 2),          # ✅ show base including Buying Diff
+            buy_price=round(base_buy, 2),          # ✅ show base including Buying Diff
             sell_price=round(sell_price or 0.0, 2),
             freight_cost=round(freight_per_ton or 0.0, 2),
             cocoa_price=cocoa_market_price,
