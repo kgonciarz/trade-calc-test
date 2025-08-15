@@ -438,8 +438,8 @@ else:
     # Given sell price → margin
     margin_per_ton = ((sell_price or 0.0) + buying_diff) - cost_per_ton
     total_margin = margin_per_ton * volume
-    st.success(f"Margin per ton: **€{margin_per_ton:.2f}**")
-    st.success(f"Total margin: **€{total_margin:.2f}**")
+    st.success(f"Margin per ton: **{base_currency_symbol}{margin_per_ton:.2f}**")
+    st.success(f"Total margin: **{base_currency_symbol}{total_margin:.2f}**")
 
     margin_percent = (margin_per_ton / (sell_price + buying_diff)) * 100 if sell_price else 0.0
 
