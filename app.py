@@ -15,7 +15,8 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 st.set_page_config(layout="wide")
 st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
 st.write("Calculate trade margin from costs (manual inputs).")
-
+BASE_CCY = "GBP"
+BASE_SYMBOL = "£"
 # ---------- FX helpers ----------
 def get_fx_rate(pair: str):
     ticker = yf.Ticker(pair)
@@ -23,14 +24,23 @@ def get_fx_rate(pair: str):
     if not data.empty:
         return round(float(data["Close"].iloc[-1]), 4)
     return None
-
+def to_base(amount: float, ccy: str) -> float:
+    """Convert amount from ccy to GBP."""
+    c = (ccy or BASE_CCY).upper()
+    if c == "GBP":
+        return amount
+    if c == "EUR":
+        return amount * eur_gbp_rate
+    if c == "USD":
+        return amount * usd_gbp_rate
+    return amount  # fallback: treat unknown as already GBP
 # Live rates (with fallbacks)
 eur_usd_rate = get_fx_rate("EURUSD=X") or 1.08   # EUR → USD
 usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93   # USD → EUR
 gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17   # GBP → EUR
 eur_gbp_rate = get_fx_rate("EURGBP=X") or 0.85   # EUR → GBP
 usd_gbp_rate = get_fx_rate("USDGBP=X") or 0.79   # USD → GBP
-gbp_usd_rate = gbp_eur_rate * eur_usd_rate       # GBP → USD
+gbp_usd_rate = get_fx_rate("GBPUSD=X") or (1.0 / usd_gbp_rate)      # GBP → USD
 
 
 def choose_trade_fx(buy_ccy: str, sell_ccy: str):
@@ -121,10 +131,10 @@ base_currency_symbol = currency_symbols.get(buy_currency, "€")
 
 
 # Convert buy price to EUR for all subsequent calc
-if buy_currency == "USD":
-    buy_price *= usd_eur_rate
-elif buy_currency == "GBP":
-    buy_price *= gbp_eur_rate
+if buy_currency == "EUR":
+    buy_price *= eur_gbp_rate
+elif buy_currency == "USD":
+    buy_price *= usd_gbp_rate
 
 # 👉 Buying Diff is part of the base price, not a cost
 buying_diff = st.sidebar.number_input(
@@ -179,36 +189,37 @@ trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
 # ---------- Manual costs ----------
 # LID switch → 400 GBP/t if YES else 0
 lid_yes = st.sidebar.checkbox("LID applies?", value=False)
-lid_eur = (400.0 * gbp_eur_rate) if lid_yes else 0.0
+lid_gbp = (400.0 * eur_gbp_rate) if lid_yes else 0.0
 
-cert_premium_eur   = money_input_gbp("CERT PREMIUM")
-docs_costs_eur     = money_input_gbp("DOCS COSTS")
+cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
+docs_costs_gbp     = money_input_gbp("DOCS COSTS")
 
 qc_type = st.sidebar.selectbox("QUALITY CLAIM type", ["€/t", "% of buy"], index=0)
 if qc_type == "€/t":
-    quality_claim_eur = money_input_gbp("QUALITY CLAIM")
+    quality_claim_gbp = money_input_gbp("QUALITY CLAIM")
 else:
     qc_pct = percent_cost_from_buy("QUALITY CLAIM")
-    quality_claim_eur = (qc_pct / 100.0) * base_buy  # use base including Buying Diff
+    quality_claim_gbp = (qc_pct / 100.0) * base_buy  # use base including Buying Diff
 
 wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
-weight_loss_eur = (wl_pct / 100.0) * base_buy        # use base including Buying Diff
+weight_loss_gbp = (wl_pct / 100.0) * base_buy      # use base including Buying Diff
 
-qc_dep_eur       = money_input_gbp("QUALITY CONTROLE DEP")
-qc_arr_eur       = money_input_gbp("QUALITY CONTROLE ARR")
-origin_agent_eur = money_input_gbp("ORIGIN AGENT")
-dest_agent_eur   = money_input_gbp("DESTINATION AGENT")
+qc_dep_gbp       = money_input_gbp("QUALITY CONTROLE DEP")
+qc_arr_gbp       = money_input_gbp("QUALITY CONTROLE ARR")
+origin_agent_gbp = money_input_gbp("ORIGIN AGENT")
+dest_agent_gbp   = money_input_gbp("DESTINATION AGENT")
 
 # FREIGHT — manual override or auto from table
 use_manual_freight = st.sidebar.checkbox("Enter FREIGHT manually (override route table)?", value=False)
 freight_per_ton = None
 if use_manual_freight:
-    freight_per_ton = money_input_eur("FREIGHT")
+    freight_per_ton = money_input_gbp("FREIGHT")
 
-dressing_eur            = money_input_gbp("DRESSING")
-freight_correction_eur  = money_input_gbp("FREIGHT CORRECTION")
-marine_insurance_eur    = money_input_gbp("MARINE INSURANCE")
-stock_insurance_eur     = money_input_gbp("STOCK INSURANCE")
+
+dressing_gbp            = money_input_gbp("DRESSING")
+freight_correction_gbp  = money_input_gbp("FREIGHT CORRECTION")
+marine_insurance_gbp    = money_input_gbp("MARINE INSURANCE")
+stock_insurance_gbp     = money_input_gbp("STOCK INSURANCE")
 
 # ---------- Freight route table (optional) ----------
 freight_costs = {}
@@ -282,7 +293,7 @@ if os.path.exists(warehouse_excel_path):
     warehouse_df = pd.read_excel(warehouse_excel_path, index_col=0)
     if selected_warehouse in warehouse_df.columns:
         # assuming values in GBP/t → convert to EUR/t
-        warehouse_costs = warehouse_df[selected_warehouse].dropna() * gbp_eur_rate
+        warehouse_costs = warehouse_df[selected_warehouse].dropna()
         warehouse_total_per_ton = float(warehouse_costs.sum())
     else:
         st.warning(f"No cost data found for selected warehouse: {selected_warehouse}")
@@ -291,23 +302,23 @@ else:
 
 # ---------- Manual cost table (EXCLUDES Buying Diff) ----------
 manual_rows = [
-    {"Cost Item": "LID",                    "EUR/ton": round(lid_eur, 2)},
-    {"Cost Item": "CERT PREMIUM",           "EUR/ton": round(cert_premium_eur, 2)},
-    {"Cost Item": "DOCS COSTS",             "EUR/ton": round(docs_costs_eur, 2)},
-    {"Cost Item": "QUALITY CLAIM",          "EUR/ton": round(quality_claim_eur, 2)},
-    {"Cost Item": "WEIGHT LOSS",            "EUR/ton": round(weight_loss_eur, 2)},
-    {"Cost Item": "QUALITY CONTROLE DEP",   "EUR/ton": round(qc_dep_eur, 2)},
-    {"Cost Item": "QUALITY CONTROLE ARR",   "EUR/ton": round(qc_arr_eur, 2)},
-    {"Cost Item": "ORIGIN AGENT",           "EUR/ton": round(origin_agent_eur, 2)},
-    {"Cost Item": "DESTINATION AGENT",      "EUR/ton": round(dest_agent_eur, 2)},
-    {"Cost Item": "FREIGHT",                "EUR/ton": round((freight_per_ton or 0.0), 2)},
-    {"Cost Item": "DRESSING",               "EUR/ton": round(dressing_eur, 2)},
-    {"Cost Item": "FREIGHT CORRECTION",     "EUR/ton": round(freight_correction_eur, 2)},
-    {"Cost Item": "MARINE INSURANCE",       "EUR/ton": round(marine_insurance_eur, 2)},
-    {"Cost Item": "STOCK INSURANCE",        "EUR/ton": round(stock_insurance_eur, 2)},
+    {"Cost Item": "LID",                    "GBP/ton": round(lid_gbp, 2)},
+    {"Cost Item": "CERT PREMIUM",           "GBP/ton": round(cert_premium_gbp, 2)},
+    {"Cost Item": "DOCS COSTS",             "GBP/ton": round(docs_costs_gbp, 2)},
+    {"Cost Item": "QUALITY CLAIM",          "GBP/ton": round(quality_claim_gbp, 2)},
+    {"Cost Item": "WEIGHT LOSS",            "GBP/ton": round(weight_loss_gbp, 2)},
+    {"Cost Item": "QUALITY CONTROLE DEP",   "GBP/ton": round(qc_dep_gbp, 2)},
+    {"Cost Item": "QUALITY CONTROLE ARR",   "GBP/ton": round(qc_arr_gbp, 2)},
+    {"Cost Item": "ORIGIN AGENT",           "GBP/ton": round(origin_agent_gbp, 2)},
+    {"Cost Item": "DESTINATION AGENT",      "GBP/ton": round(dest_agent_gbp, 2)},
+    {"Cost Item": "FREIGHT",                "GBP/ton": round((freight_per_ton or 0.0), 2)},
+    {"Cost Item": "DRESSING",               "GBP/ton": round(dressing_gbp, 2)},
+    {"Cost Item": "FREIGHT CORRECTION",     "GBP/ton": round(freight_correction_gbp, 2)},
+    {"Cost Item": "MARINE INSURANCE",       "GBP/ton": round(marine_insurance_gbp, 2)},
+    {"Cost Item": "STOCK INSURANCE",        "GBP/ton": round(stock_insurance_gbp, 2)},
 ]
 manual_df = pd.DataFrame(manual_rows)
-manual_subtotal = float(manual_df["EUR/ton"].sum())
+manual_subtotal = float(manual_df["GBP/ton"].sum())
 
 with st.expander("📊 Manual Cost Breakdown (per ton)"):
     st.dataframe(manual_df)
@@ -373,10 +384,10 @@ def generate_ai_comment(buy_price, sell_price, freight_cost, cocoa_price, fx_rat
 You are a commodity market analyst. Based on the following trade parameters:
 
 - Calculation mode: {mode}
-- Purchase price: {buy_price} EUR/ton
-- Selling price: {sell_price} EUR/ton
-- Freight cost: {freight_cost} EUR/ton
-- Cocoa market price: {cocoa_price} EUR/ton
+- Purchase price: {buy_price} GBP/ton
+- Selling price: {sell_price} GBP/ton
+- Freight cost: {freight_cost} GBP/ton
+- Cocoa market price: {cocoa_price} GBP/ton
 - FX rate ({fx_label}): {fx_rate}
 - Calculated margin: {margin:.2f}%
 
