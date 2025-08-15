@@ -129,7 +129,7 @@ buying_diff = st.sidebar.number_input(
     step=10.0,
     format="%.2f",
 )
-base_buy_eur = buy_price + buying_diff  # ✅ base purchase level
+base_buy_eur = buy_price
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
@@ -312,7 +312,7 @@ else:
     cost_per_ton = base_cost_per_ton
 
 st.write(f"📦 Buy price per ton (EUR): €{buy_price:.2f}")
-st.write(f"➕ Buying Diff per ton (EUR): €{buying_diff:.2f}")
+st.write(f"➕ Buying Diff added to revenue (EUR): €{buying_diff:.2f}")
 st.write(f"➡️ Base buy per ton (EUR): **€{base_buy_eur:.2f}**")
 st.write(f"🚢 Freight per ton (EUR): €{(freight_per_ton or 0.0):.2f}")
 st.write(f"🏭 Warehouse cost per ton (EUR): €{warehouse_total_per_ton:.2f}")
