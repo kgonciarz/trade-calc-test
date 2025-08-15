@@ -121,6 +121,7 @@ if buy_currency == "USD":
 elif buy_currency == "GBP":
     buy_price *= gbp_eur_rate
 
+# 👉 Buying Diff is part of the base price, not a cost
 buying_diff = st.sidebar.number_input(
     "Buying Diff (€ per ton)",
     min_value=0.0,
@@ -128,6 +129,7 @@ buying_diff = st.sidebar.number_input(
     step=10.0,
     format="%.2f",
 )
+base_buy_eur = buy_price + buying_diff  # ✅ base purchase level
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
@@ -159,7 +161,7 @@ if is_reverse:
 else:
     target_margin = None
     sell_price = st.sidebar.number_input("Sell Price", min_value=0.0, value=8500.0, step=10.0)
-    # convert sell price to EUR if needed later (only when we actually use it)
+    # convert sell price to EUR if needed
     if sell_currency == "USD":
         sell_price *= usd_eur_rate
     elif sell_currency == "GBP":
@@ -181,16 +183,17 @@ if qc_type == "€/t":
     quality_claim_eur = money_input_eur("QUALITY CLAIM")
 else:
     qc_pct = percent_cost_from_buy("QUALITY CLAIM")
-    quality_claim_eur = (qc_pct / 100.0) * buy_price
+    quality_claim_eur = (qc_pct / 100.0) * base_buy_eur  # use base including Buying Diff
 
 wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
-weight_loss_eur = (wl_pct / 100.0) * buy_price
+weight_loss_eur = (wl_pct / 100.0) * base_buy_eur        # use base including Buying Diff
 
 qc_dep_eur       = money_input_eur("QUALITY CONTROLE DEP")
 qc_arr_eur       = money_input_eur("QUALITY CONTROLE ARR")
 origin_agent_eur = money_input_eur("ORIGIN AGENT")
 dest_agent_eur   = money_input_eur("DESTINATION AGENT")
 
+# FREIGHT — manual override or auto from table
 use_manual_freight = st.sidebar.checkbox("Enter FREIGHT manually (override route table)?", value=False)
 freight_per_ton = None
 if use_manual_freight:
@@ -209,17 +212,14 @@ excel_path = "logistics_freight_trade_calc.xlsx"
 if os.path.exists(excel_path):
     df_excel = pd.read_excel(excel_path)
     df_excel.columns = [str(c).strip().upper() for c in df_excel.columns]
-    # keep 20' only if column exists
     if "CONTAINER" in df_excel.columns:
         df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)].copy()
 
-    # Normalize currency and amounts
     if "CURRENCY" in df_excel.columns:
         df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
     df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
     df_excel.loc[df_excel.get("CURRENCY", "") == "USD", "ALL_IN"] *= usd_eur_rate
 
-    # Validate required columns
     for c in ["POL", "POD", "SHIPPING LINE"]:
         if c not in df_excel.columns:
             st.error(f"Freight file missing column: {c}")
@@ -268,9 +268,8 @@ if os.path.exists(warehouse_excel_path):
 else:
     st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
 
-# ---------- Manual cost table ----------
+# ---------- Manual cost table (EXCLUDES Buying Diff) ----------
 manual_rows = [
-    {"Cost Item": "BUYING DIFF (manual)",   "EUR/ton": round(buying_diff, 2)},
     {"Cost Item": "LID",                    "EUR/ton": round(lid_eur, 2)},
     {"Cost Item": "CERT PREMIUM",           "EUR/ton": round(cert_premium_eur, 2)},
     {"Cost Item": "DOCS COSTS",             "EUR/ton": round(docs_costs_eur, 2)},
@@ -293,12 +292,16 @@ with st.expander("📊 Manual Cost Breakdown (per ton)"):
     st.dataframe(manual_df)
     st.write(f"🧮 Manual costs subtotal: **€{manual_subtotal:.2f}**")
 
+# Show the base buy clearly
+st.markdown(f"**Base buy (incl. Buying Diff): €{base_buy_eur:.2f}/t**")
+st.caption(f"(Buy Price €{buy_price:.2f} + Buying Diff €{buying_diff:.2f})")
+
 # ---------- Containers estimate ----------
 containers_needed = round(volume / 25)
 st.markdown(f"🧱 Estimated containers: **{containers_needed} × 20'**")
 
 # ---------- Base landed cost & financing (apply ONCE) ----------
-base_cost_per_ton = buy_price + manual_subtotal + warehouse_total_per_ton
+base_cost_per_ton = base_buy_eur + manual_subtotal + warehouse_total_per_ton
 
 if payment_days > 0:
     financing_per_ton = (annual_rate / 365) * payment_days * base_cost_per_ton
@@ -309,6 +312,8 @@ else:
     cost_per_ton = base_cost_per_ton
 
 st.write(f"📦 Buy price per ton (EUR): €{buy_price:.2f}")
+st.write(f"➕ Buying Diff per ton (EUR): €{buying_diff:.2f}")
+st.write(f"➡️ Base buy per ton (EUR): **€{base_buy_eur:.2f}**")
 st.write(f"🚢 Freight per ton (EUR): €{(freight_per_ton or 0.0):.2f}")
 st.write(f"🏭 Warehouse cost per ton (EUR): €{warehouse_total_per_ton:.2f}")
 st.write(f"💼 Total landed cost per ton (EUR): **€{cost_per_ton:.2f}**")
@@ -383,7 +388,7 @@ if is_reverse:
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
         ai_comment = generate_ai_comment(
-            buy_price=round(buy_price, 2),
+            buy_price=round(base_buy_eur, 2),          # ✅ show base including Buying Diff
             sell_price=round(required_sell_price, 2),
             freight_cost=round(freight_per_ton or 0.0, 2),
             cocoa_price=cocoa_market_price,
@@ -406,7 +411,7 @@ else:
     with st.expander("🧠 AI Analysis"):
         st.write("Generating AI commentary based on trade parameters...")
         ai_comment = generate_ai_comment(
-            buy_price=round(buy_price, 2),
+            buy_price=round(base_buy_eur, 2),          # ✅ show base including Buying Diff
             sell_price=round(sell_price or 0.0, 2),
             freight_cost=round(freight_per_ton or 0.0, 2),
             cocoa_price=cocoa_market_price,
