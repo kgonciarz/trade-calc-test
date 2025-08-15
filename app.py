@@ -368,7 +368,7 @@ with st.expander("📦 Warehouse Cost Breakdown"):
         st.write(styled)
     else:
         st.write("No detailed cost breakdown available.")
-    st.write(f"📦 Warehouse cost per ton: **€{warehouse_total_per_ton:.2f}**")
+    st.write(f"📦 Warehouse cost per ton: **{base_currency_symbol}{warehouse_total_per_ton:.2f}**")
 
 # ---------- Market helper ----------
 def get_cocoa_price():
