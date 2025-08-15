@@ -226,21 +226,16 @@ if os.path.exists(excel_path):
         df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)].copy()
 
     # Ensure data types
-  # Freight Excel is in EUR — convert to base currency if needed
-if "CURRENCY" in df_excel.columns:
-    df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
+    if "CURRENCY" in df_excel.columns:
+        df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
+    df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
 
-df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
-
-# Convert ALL_IN to base currency
-if buy_currency == "GBP":
-    df_excel.loc[df_excel.get("CURRENCY", "") == "USD", "ALL_IN"] *= usd_gbp_rate
-    df_excel.loc[df_excel.get("CURRENCY", "") == "EUR", "ALL_IN"] *= eur_gbp_rate
-elif buy_currency == "USD":
-    df_excel.loc[df_excel.get("CURRENCY", "") == "EUR", "ALL_IN"] *= eur_usd_rate
-elif buy_currency == "EUR":
-    df_excel.loc[df_excel.get("CURRENCY", "") == "USD", "ALL_IN"] *= usd_eur_rate
-
+    # --- Convert ALL_IN to GBP ---
+    # Expecting file mostly in EUR; handle USD/GBP just in case.
+    # eur_gbp_rate: EUR → GBP, usd_gbp_rate: USD → GBP
+    df_excel.loc[df_excel["CURRENCY"] == "EUR", "ALL_IN"] *= eur_gbp_rate
+    df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] *= usd_gbp_rate
+    # If already GBP, leave as-is
 
     # Validate required columns
     for c in ["POL", "POD", "SHIPPING LINE"]:
