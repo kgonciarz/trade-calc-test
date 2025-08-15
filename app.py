@@ -28,6 +28,9 @@ def get_fx_rate(pair: str):
 eur_usd_rate = get_fx_rate("EURUSD=X") or 1.08   # EUR → USD
 usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93   # USD → EUR
 gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17   # GBP → EUR
+eur_gbp_rate = get_fx_rate("EURGBP=X") or 0.85   # EUR → GBP
+usd_gbp_rate = get_fx_rate("USDGBP=X") or 0.79   # USD → GBP
+
 
 def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     """
@@ -43,11 +46,7 @@ def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     return 1.0, "EUR"
 
 # ---------- Input widgets helpers ----------
-def money_input_eur(label: str, default: float = 0.0, default_ccy: str = "EUR"):
-    """
-    Sidebar input for an amount with currency selector.
-    Converts to EUR using live fx. Returns value in EUR/t.
-    """
+def money_input_gbp(label: str, default: float = 0.0, default_ccy: str = "GBP"):
     c1, c2 = st.sidebar.columns([2, 1])
     amt = c1.number_input(
         f"{label} amount",
@@ -59,15 +58,16 @@ def money_input_eur(label: str, default: float = 0.0, default_ccy: str = "EUR"):
     )
     ccy = c2.selectbox(
         f"{label} currency",
-        ["EUR", "GBP", "USD"],
-        index=["EUR", "GBP", "USD"].index(default_ccy),
+        ["GBP", "EUR", "USD"],
+        index=["GBP", "EUR", "USD"].index(default_ccy),
         key=f"{label}_ccy",
     )
-    if ccy == "GBP":
-        return amt * gbp_eur_rate
+    if ccy == "EUR":
+        return amt * eur_gbp_rate
     if ccy == "USD":
-        return amt * usd_eur_rate
-    return amt  # EUR
+        return amt * usd_gbp_rate
+    return amt  # already GBP
+
 
 def percent_cost_from_buy(label: str, default_pct: float = 0.0):
     """
@@ -113,7 +113,7 @@ st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
 
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
 buy_price = st.sidebar.number_input("Buy Price", value=7500.0, step=10.0, format="%.2f")
-buy_currency = st.sidebar.selectbox("Buy Price Currency", ["EUR", "USD", "GBP"], index=0)
+buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
 
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "USD":
@@ -144,7 +144,7 @@ if payment_days > 0:
 else:
     annual_rate = 0.0
 
-sell_currency = st.sidebar.selectbox("Sell Price Currency", ["EUR", "USD", "GBP"], index=0)
+sell_currency = st.sidebar.selectbox("Sell Price Currency", ["GBP", "EUR", "USD"], index=0)
 
 st.sidebar.caption(f"Rates pulled: {datetime.now(ZoneInfo('Europe/Zurich')).strftime('%Y-%m-%d %H:%M:%S')}")
 st.sidebar.markdown("### 💱 FX Rates (Live)")
@@ -175,12 +175,12 @@ trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
 lid_yes = st.sidebar.checkbox("LID applies?", value=False)
 lid_eur = (400.0 * gbp_eur_rate) if lid_yes else 0.0
 
-cert_premium_eur   = money_input_eur("CERT PREMIUM")
-docs_costs_eur     = money_input_eur("DOCS COSTS")
+cert_premium_eur   = money_input_gbp("CERT PREMIUM")
+docs_costs_eur     = money_input_gbp("DOCS COSTS")
 
 qc_type = st.sidebar.selectbox("QUALITY CLAIM type", ["€/t", "% of buy"], index=0)
 if qc_type == "€/t":
-    quality_claim_eur = money_input_eur("QUALITY CLAIM")
+    quality_claim_eur = money_input_gbp("QUALITY CLAIM")
 else:
     qc_pct = percent_cost_from_buy("QUALITY CLAIM")
     quality_claim_eur = (qc_pct / 100.0) * base_buy_eur  # use base including Buying Diff
@@ -188,10 +188,10 @@ else:
 wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
 weight_loss_eur = (wl_pct / 100.0) * base_buy_eur        # use base including Buying Diff
 
-qc_dep_eur       = money_input_eur("QUALITY CONTROLE DEP")
-qc_arr_eur       = money_input_eur("QUALITY CONTROLE ARR")
-origin_agent_eur = money_input_eur("ORIGIN AGENT")
-dest_agent_eur   = money_input_eur("DESTINATION AGENT")
+qc_dep_eur       = money_input_gbp("QUALITY CONTROLE DEP")
+qc_arr_eur       = money_input_gbp("QUALITY CONTROLE ARR")
+origin_agent_eur = money_input_gbp("ORIGIN AGENT")
+dest_agent_eur   = money_input_gbp("DESTINATION AGENT")
 
 # FREIGHT — manual override or auto from table
 use_manual_freight = st.sidebar.checkbox("Enter FREIGHT manually (override route table)?", value=False)
@@ -199,43 +199,58 @@ freight_per_ton = None
 if use_manual_freight:
     freight_per_ton = money_input_eur("FREIGHT")
 
-dressing_eur            = money_input_eur("DRESSING")
-freight_correction_eur  = money_input_eur("FREIGHT CORRECTION")
-marine_insurance_eur    = money_input_eur("MARINE INSURANCE")
-stock_insurance_eur     = money_input_eur("STOCK INSURANCE")
+dressing_eur            = money_input_gbp("DRESSING")
+freight_correction_eur  = money_input_gbp("FREIGHT CORRECTION")
+marine_insurance_eur    = money_input_gbp("MARINE INSURANCE")
+stock_insurance_eur     = money_input_gbp("STOCK INSURANCE")
 
 # ---------- Freight route table (optional) ----------
 freight_costs = {}
 warehouse_costs = None  # ensure defined for later display
 
 excel_path = "logistics_freight_trade_calc.xlsx"
+freight_costs = {}
+
 if os.path.exists(excel_path):
     df_excel = pd.read_excel(excel_path)
+
+    # Normalize columns
     df_excel.columns = [str(c).strip().upper() for c in df_excel.columns]
     if "CONTAINER" in df_excel.columns:
         df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)].copy()
 
+    # Ensure data types
     if "CURRENCY" in df_excel.columns:
         df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
     df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
-    df_excel.loc[df_excel.get("CURRENCY", "") == "USD", "ALL_IN"] *= usd_eur_rate
 
+    # --- Convert ALL_IN to GBP ---
+    # Expecting file mostly in EUR; handle USD/GBP just in case.
+    # eur_gbp_rate: EUR → GBP, usd_gbp_rate: USD → GBP
+    df_excel.loc[df_excel["CURRENCY"] == "EUR", "ALL_IN"] *= eur_gbp_rate
+    df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] *= usd_gbp_rate
+    # If already GBP, leave as-is
+
+    # Validate required columns
     for c in ["POL", "POD", "SHIPPING LINE"]:
         if c not in df_excel.columns:
             st.error(f"Freight file missing column: {c}")
 
+    # Clean names
     df_excel = df_excel.dropna(subset=["POL", "POD", "SHIPPING LINE", "ALL_IN"])
     df_excel["POL"] = df_excel["POL"].astype(str).str.strip().str.upper()
     df_excel["POD"] = df_excel["POD"].astype(str).str.strip().str.upper()
     df_excel["SHIPPING LINE"] = df_excel["SHIPPING LINE"].astype(str).str.strip().str.upper()
 
+    # Store route costs (per container, in GBP). You'll divide by 25 later.
     for _, row in df_excel.iterrows():
         route = (row["POL"], row["POD"])
         carrier_name = row["SHIPPING LINE"]
-        cost = float(row["ALL_IN"])
-        freight_costs.setdefault(route, {})[carrier_name] = cost
+        cost_gbp = float(row["ALL_IN"])
+        freight_costs.setdefault(route, {})[carrier_name] = cost_gbp
 else:
     st.warning("Freight file not found: logistics_freight_trade_calc.xlsx")
+
 
 def get_freight_per_ton(port_from, port_to, selected_carrier=None):
     route = (port_from, port_to)
