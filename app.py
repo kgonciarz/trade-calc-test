@@ -30,6 +30,7 @@ usd_eur_rate = get_fx_rate("USDEUR=X") or 0.93   # USD → EUR
 gbp_eur_rate = get_fx_rate("GBPEUR=X") or 1.17   # GBP → EUR
 eur_gbp_rate = get_fx_rate("EURGBP=X") or 0.85   # EUR → GBP
 usd_gbp_rate = get_fx_rate("USDGBP=X") or 0.79   # USD → GBP
+gbp_usd_rate = gbp_eur_rate * eur_usd_rate       # GBP → USD
 
 
 def choose_trade_fx(buy_ccy: str, sell_ccy: str):
@@ -114,6 +115,10 @@ st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
 volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
 buy_price = st.sidebar.number_input("Buy Price", value=7500.0, step=10.0, format="%.2f")
 buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
+# Set base currency symbol dynamically
+currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
+base_currency_symbol = currency_symbols.get(buy_currency, "€")
+
 
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "USD":
@@ -151,6 +156,7 @@ st.sidebar.markdown("### 💱 FX Rates (Live)")
 st.sidebar.markdown(f"- **EUR/USD**: {eur_usd_rate}")
 st.sidebar.markdown(f"- **USD/EUR**: {usd_eur_rate}")
 st.sidebar.markdown(f"- **GBP/EUR**: {gbp_eur_rate}")
+st.sidebar.markdown(f"- **GBP/USD**: {gbp_usd_rate}")
 
 calc_type = st.sidebar.selectbox("Calculation Type", ["Sell Price Calculation", "Margin Calculation"])
 is_reverse = (calc_type == "Margin Calculation")
@@ -220,16 +226,21 @@ if os.path.exists(excel_path):
         df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)].copy()
 
     # Ensure data types
-    if "CURRENCY" in df_excel.columns:
-        df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
-    df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
+  # Freight Excel is in EUR — convert to base currency if needed
+if "CURRENCY" in df_excel.columns:
+    df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
 
-    # --- Convert ALL_IN to GBP ---
-    # Expecting file mostly in EUR; handle USD/GBP just in case.
-    # eur_gbp_rate: EUR → GBP, usd_gbp_rate: USD → GBP
-    df_excel.loc[df_excel["CURRENCY"] == "EUR", "ALL_IN"] *= eur_gbp_rate
-    df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] *= usd_gbp_rate
-    # If already GBP, leave as-is
+df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
+
+# Convert ALL_IN to base currency
+if buy_currency == "GBP":
+    df_excel.loc[df_excel.get("CURRENCY", "") == "USD", "ALL_IN"] *= usd_gbp_rate
+    df_excel.loc[df_excel.get("CURRENCY", "") == "EUR", "ALL_IN"] *= eur_gbp_rate
+elif buy_currency == "USD":
+    df_excel.loc[df_excel.get("CURRENCY", "") == "EUR", "ALL_IN"] *= eur_usd_rate
+elif buy_currency == "EUR":
+    df_excel.loc[df_excel.get("CURRENCY", "") == "USD", "ALL_IN"] *= usd_eur_rate
+
 
     # Validate required columns
     for c in ["POL", "POD", "SHIPPING LINE"]:
@@ -326,12 +337,14 @@ if payment_days > 0:
 else:
     cost_per_ton = base_cost_per_ton
 
-st.write(f"📦 Buy price per ton (EUR): €{buy_price:.2f}")
-st.write(f"➕ Buying Diff added to revenue (EUR): €{buying_diff:.2f}")
-st.write(f"➡️ Base buy per ton (EUR): **€{base_buy_eur:.2f}**")
-st.write(f"🚢 Freight per ton (EUR): €{(freight_per_ton or 0.0):.2f}")
-st.write(f"🏭 Warehouse cost per ton (EUR): €{warehouse_total_per_ton:.2f}")
-st.write(f"💼 Total landed cost per ton (EUR): **€{cost_per_ton:.2f}**")
+st.write(f"💳 Financing cost per ton: {base_currency_symbol}{financing_per_ton:.2f}")
+st.write(f"📦 Buy price per ton ({buy_currency}): {base_currency_symbol}{buy_price:.2f}")
+st.write(f"➕ Buying Diff added to revenue ({buy_currency}): {base_currency_symbol}{buying_diff:.2f}")
+st.write(f"➡️ Base buy per ton ({buy_currency}): **{base_currency_symbol}{base_buy_eur:.2f}**")
+st.write(f"🚢 Freight per ton ({buy_currency}): {base_currency_symbol}{(freight_per_ton or 0.0):.2f}")
+st.write(f"🏭 Warehouse cost per ton ({buy_currency}): {base_currency_symbol}{warehouse_total_per_ton:.2f}")
+st.write(f"💼 Total landed cost per ton ({buy_currency}): **{base_currency_symbol}{cost_per_ton:.2f}**")
+
 
 # ---------- Warehouse breakdown ----------
 with st.expander("📦 Warehouse Cost Breakdown"):
