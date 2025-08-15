@@ -194,8 +194,13 @@ lid_gbp = (400.0 * eur_gbp_rate) if lid_yes else 0.0
 cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
 docs_costs_gbp     = money_input_gbp("DOCS COSTS")
 
-qc_type = st.sidebar.selectbox("QUALITY CLAIM type", ["€/t", "% of buy"], index=0)
-if qc_type == "€/t":
+qc_type = st.sidebar.selectbox(
+    f"QUALITY CLAIM type", 
+    [f"{base_currency_symbol}/t", "% of buy"], 
+    index=0
+)
+
+if qc_type == f"{base_currency_symbol}/t":
     quality_claim_gbp = money_input_gbp("QUALITY CLAIM")
 else:
     qc_pct = percent_cost_from_buy("QUALITY CLAIM")
