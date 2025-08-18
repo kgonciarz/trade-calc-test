@@ -433,7 +433,7 @@ containers_needed = round(volume / 25)
 st.markdown(f"🧱 Estimated containers: **{containers_needed} × 20'**")
 
 # ---------- Base landed cost & financing (apply ONCE) ----------
-base_cost_per_ton = base_buy + manual_subtotal + warehouse_total_per_ton
+base_cost_per_ton = base_buy + manual_subtotal + warehouse_total_per_ton + freight_per_ton
 
 if payment_days > 0:
     financing_per_ton = (annual_rate / 365) * payment_days * base_cost_per_ton
