@@ -192,7 +192,17 @@ lid_yes = st.sidebar.checkbox("LID applies?", value=False)
 lid_gbp = (400.0 * eur_gbp_rate) if lid_yes else 0.0
 
 cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
-docs_costs_gbp     = money_input_gbp("DOCS COSTS")
+# --- DOCS COSTS as % of base buy ---
+docs_pct = st.sidebar.number_input(
+    "DOCS COSTS (% of base buy)",
+    min_value=0.0,
+    value=0.0,
+    step=0.1,
+    format="%.2f"
+)
+docs_costs_gbp = (docs_pct / 100.0) * base_buy
+st.sidebar.caption(f"Docs Costs = {docs_pct:.2f}% of base → {BASE_SYMBOL}{docs_costs_gbp:.2f}/t")
+
 
 qc_type = st.sidebar.selectbox(
     f"QUALITY CLAIM type", 
