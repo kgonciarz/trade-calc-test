@@ -189,7 +189,7 @@ trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
 # ---------- Manual costs ----------
 # LID switch → 400 GBP/t if YES else 0
 lid_yes = st.sidebar.checkbox("LID applies?", value=False)
-lid_gbp = (400.0 * eur_gbp_rate) if lid_yes else 0.0
+lid_gbp = 400.0 if lid_yes else 0.0
 
 cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
 # --- DOCS COSTS as % of base buy ---
