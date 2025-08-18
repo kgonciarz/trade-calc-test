@@ -8,6 +8,18 @@ import streamlit as st
 import yfinance as yf
 from openai import OpenAI
 
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+def fmt_ccy(x: float, symbol: str) -> str:
+    try:
+        return f"{symbol}{x:,.2f}"
+    except Exception:
+        return f"{symbol}{x}"
+
 # ---------- Setup ----------
 now_ch = datetime.now(ZoneInfo("Europe/Zurich"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -560,3 +572,159 @@ else:
             mode="Margin Calculation Mode"
         )
         st.markdown(ai_comment)
+
+def build_pdf_report(
+    *,
+    base_symbol: str,
+    buy_price: float,
+    buying_diff: float,
+    base_buy: float,
+    manual_df,  # pandas DataFrame with columns ["Cost Item", ".../ton"]
+    manual_subtotal: float,
+    freight_per_ton: float,
+    warehouse_total_per_ton: float,
+    financing_per_ton: float,
+    cost_per_ton: float,
+    mode_label: str,
+    sell_price: float | None,
+    target_margin: float | None,
+    margin_per_ton: float | None,
+    total_margin: float | None,
+    required_sell_price: float | None,
+    volume: float,
+) -> BytesIO:
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Heading1"], fontSize=16, spaceAfter=12)
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=12, spaceAfter=6)
+    body = styles["BodyText"]
+
+    story = []
+    story.append(Paragraph("Cocoa Trade Summary", h1))
+    story.append(Paragraph(f"Mode: {mode_label}", body))
+    story.append(Spacer(1, 6))
+
+    # Cost Summary
+    story.append(Paragraph("Cost Summary (per ton)", h2))
+    cost_rows = [
+        ["Buy price", fmt_ccy(buy_price, base_symbol)],
+        ["Buying Diff (added to revenue)", fmt_ccy(buying_diff, base_symbol)],
+        ["Base buy", fmt_ccy(base_buy, base_symbol)],
+        ["Manual costs subtotal", fmt_ccy(manual_subtotal, base_symbol)],
+        ["Freight", fmt_ccy(freight_per_ton or 0.0, base_symbol)],
+        ["Warehouse", fmt_ccy(warehouse_total_per_ton, base_symbol)],
+        ["Financing", fmt_ccy(financing_per_ton, base_symbol)],
+        ["Total landed cost", fmt_ccy(cost_per_ton, base_symbol)],
+    ]
+    t_cost = Table(cost_rows, colWidths=[200, 200])
+    t_cost.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.25, colors.lightgrey),
+        ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
+        ("ALIGN", (1,0), (1,-1), "RIGHT"),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+    ]))
+    story.append(t_cost)
+    story.append(Spacer(1, 10))
+
+    # Manual cost breakdown (if any)
+    if manual_df is not None and not manual_df.empty:
+        story.append(Paragraph("Manual Cost Breakdown (per ton)", h2))
+        # Ensure two columns only: label & value
+        # Detect the value column name dynamically (the second column in your table)
+        value_col = manual_df.columns[-1]
+        table_data = [["Cost Item", value_col]]
+        for _, r in manual_df.iterrows():
+            table_data.append([str(r["Cost Item"]), fmt_ccy(float(r[value_col]) if pd.notna(r[value_col]) else 0.0, base_symbol)])
+        t_manual = Table(table_data, colWidths=[260, 140])
+        t_manual.setStyle(TableStyle([
+            ("GRID", (0,0), (-1,-1), 0.25, colors.lightgrey),
+            ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
+            ("ALIGN", (1,1), (1,-1), "RIGHT"),
+        ]))
+        story.append(t_manual)
+        story.append(Spacer(1, 10))
+
+    # Margin Summary
+    story.append(Paragraph("Margin Summary", h2))
+    if mode_label == "Margin Calculation":
+        # given sell price → margin
+        ms = [
+            ["Sell price", fmt_ccy(sell_price or 0.0, base_symbol)],
+            ["Total landed cost", fmt_ccy(cost_per_ton, base_symbol)],
+            ["Margin per ton", fmt_ccy(margin_per_ton or 0.0, base_symbol)],
+            ["Volume (t)", f"{volume:,.0f}"],
+            ["Total margin", fmt_ccy(total_margin or 0.0, base_symbol)],
+        ]
+    else:
+        # given target margin → required sell
+        ms = [
+            ["Target margin per ton", fmt_ccy(target_margin or 0.0, base_symbol)],
+            ["Total landed cost", fmt_ccy(cost_per_ton, base_symbol)],
+            ["Required sell price per ton", fmt_ccy(required_sell_price or 0.0, base_symbol)],
+            ["Volume (t)", f"{volume:,.0f}"],
+        ]
+    t_margin = Table(ms, colWidths=[260, 140])
+    t_margin.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.25, colors.lightgrey),
+        ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
+        ("ALIGN", (1,0), (1,-1), "RIGHT"),
+    ]))
+    story.append(t_margin)
+
+    doc.build(story)
+    buf.seek(0)
+    return buf
+
+# ------- PDF Export -------
+default_name = f"cocoa_trade_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+pdf_name = st.text_input("📄 PDF file name", value=default_name)
+
+if st.button("Generate PDF"):
+    # Figure out mode-specific values
+    mode_label = "Margin Calculation" if not is_reverse else "Target Margin Mode"
+
+    # In target-margin mode you likely computed required_sell_price above:
+    req_sell = None
+    if is_reverse:
+        # ensure you use the same formula you use in the UI
+        req_sell = cost_per_ton + (target_margin or 0.0)
+
+    # In sell-price mode you computed margin_per_ton & total_margin above:
+    m_pt = None
+    t_m  = None
+    if not is_reverse:
+        m_pt = ((sell_price or 0.0) + buying_diff) - cost_per_ton  # matches your logic
+        t_m = m_pt * volume
+
+    try:
+        pdf_buf = build_pdf_report(
+            base_symbol=base_currency_symbol if 'base_currency_symbol' in globals() else "£",
+            buy_price=buy_price,
+            buying_diff=buying_diff,
+            base_buy=base_buy,  # your “buy + buying diff” or just “buy” per your final logic
+            manual_df=manual_df,
+            manual_subtotal=manual_subtotal,
+            freight_per_ton=freight_per_ton or 0.0,
+            warehouse_total_per_ton=warehouse_total_per_ton,
+            financing_per_ton=financing_per_ton if 'financing_per_ton' in globals() else 0.0,
+            cost_per_ton=cost_per_ton,
+            mode_label=mode_label,
+            sell_price=(sell_price or 0.0),
+            target_margin=(target_margin or 0.0),
+            margin_per_ton=m_pt,
+            total_margin=t_m,
+            required_sell_price=req_sell,
+            volume=volume,
+        )
+
+        st.success("PDF generated! Click to download:")
+        st.download_button(
+            label="⬇️ Download PDF",
+            data=pdf_buf,
+            file_name=pdf_name if pdf_name.strip().lower().endswith(".pdf") else (pdf_name.strip() + ".pdf"),
+            mime="application/pdf",
+        )
+    except Exception as e:
+        st.error(f"Failed to generate PDF: {e}")
