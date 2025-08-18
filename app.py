@@ -221,7 +221,39 @@ if use_manual_freight:
     freight_per_ton = money_input_gbp("FREIGHT")
 
 
-dressing_gbp            = money_input_gbp("DRESSING")
+# --- DRESSING from Excel (auto) with fallback to manual ---
+dressing_excel = "dressing_costs.xlsx"  # file with columns: Dressing, Value, Currency
+dressing_gbp = 0.0
+
+if os.path.exists(dressing_excel):
+    ddf = pd.read_excel(dressing_excel)
+
+    # Normalize headers
+    ddf.columns = [str(c).strip().title() for c in ddf.columns]  # "Dressing", "Value", "Currency"
+
+    required_cols = {"Dressing", "Value", "Currency"}
+    if required_cols.issubset(set(ddf.columns)):
+        ddf["Currency"] = ddf["Currency"].astype(str).str.upper()
+        ddf["Dressing"] = ddf["Dressing"].astype(str)
+
+        dressing_options = ddf["Dressing"].tolist()
+        chosen_dressing = st.sidebar.selectbox("Dressing (from table)", dressing_options, index=0)
+
+        sel_row = ddf.loc[ddf["Dressing"] == chosen_dressing].iloc[0]
+        raw_value = float(sel_row["Value"])
+        raw_ccy = str(sel_row["Currency"])
+
+        # Convert to base (GBP) using your helper
+        dressing_gbp = to_base(raw_value, raw_ccy)
+
+        st.sidebar.caption(f"Selected '{chosen_dressing}': {BASE_SYMBOL}{dressing_gbp:.2f} per ton (auto)")
+    else:
+        st.warning("Dressing file missing required columns (Dressing, Value, Currency). Using manual input.")
+        dressing_gbp = money_input_gbp("DRESSING")
+else:
+    st.warning("Dressing cost file not found (dressing_costs.xlsx). Using manual input.")
+    dressing_gbp = money_input_gbp("DRESSING")
+
 freight_correction_gbp  = money_input_gbp("FREIGHT CORRECTION")
 marine_insurance_gbp    = money_input_gbp("MARINE INSURANCE")
 stock_insurance_gbp     = money_input_gbp("STOCK INSURANCE")
