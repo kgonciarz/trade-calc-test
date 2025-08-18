@@ -222,7 +222,7 @@ if use_manual_freight:
 
 
 # --- DRESSING from Excel (auto) with fallback to manual ---
-dressing_excel = "dressing_costs.xlsx"  # file with columns: Dressing, Value, Currency
+dressing_excel = "Dressing.xlsx"  # file with columns: Dressing, Value, Currency
 dressing_gbp = 0.0
 
 if os.path.exists(dressing_excel):
