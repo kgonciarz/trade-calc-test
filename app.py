@@ -443,8 +443,6 @@ pre_finance_cost = (
 if payment_days > 0:
     financing_per_ton = (annual_rate / 365) * payment_days * pre_finance_cost
     cost_per_ton = pre_finance_cost + financing_per_ton
-    st.write(f"💳 Financing cost per ton: {base_currency_symbol}{financing_per_ton:.2f}")
-    st.caption(f"Based on {payment_days} days @ {round(annual_rate * 100, 1)}% annual interest")
 else:
     cost_per_ton = pre_finance_cost
 
