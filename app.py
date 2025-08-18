@@ -308,7 +308,17 @@ else:
     st.warning("Marine insurance file not found (marine_insurance.xlsx). Using manual input.")
     marine_insurance_gbp = money_input_gbp("MARINE INSURANCE")
 
-stock_insurance_gbp     = money_input_gbp("STOCK INSURANCE")
+# --- STOCK INSURANCE as % of base buy ---
+stock_ins_pct = st.sidebar.number_input(
+    "STOCK INSURANCE (% of base buy)",
+    min_value=0.0,
+    value=0.0,
+    step=0.1,
+    format="%.2f"
+)
+stock_insurance_gbp = (stock_ins_pct / 100.0) * base_buy
+st.sidebar.caption(f"Stock Insurance = {stock_ins_pct:.2f}% of base → {BASE_SYMBOL}{stock_insurance_gbp:.2f}/t")
+
 
 # ---------- Freight route table (optional) ----------
 freight_costs = {}
