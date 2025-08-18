@@ -255,7 +255,49 @@ else:
     dressing_gbp = money_input_gbp("DRESSING")
 
 freight_correction_gbp  = money_input_gbp("FREIGHT CORRECTION")
-marine_insurance_gbp    = money_input_gbp("MARINE INSURANCE")
+# --- MARINE INSURANCE from Excel (percentage of base buy) with fallback ---
+marine_insurance_file = "Marine_insurance.xlsx"  # columns: Marine Insurance | Value | Type
+marine_insurance_gbp = 0.0
+
+if os.path.exists(marine_insurance_file):
+    midf = pd.read_excel(marine_insurance_file)
+
+    # Normalize headers to exactly: "Marine Insurance", "Value", "Type"
+    midf.columns = [str(c).strip().title() for c in midf.columns]
+
+    required_cols = {"Marine Insurance", "Value", "Type"}
+    if required_cols.issubset(set(midf.columns)):
+        # Clean up
+        midf["Marine Insurance"] = midf["Marine Insurance"].astype(str)
+        midf["Type"] = midf["Type"].astype(str).str.title()
+        midf["Value"] = pd.to_numeric(midf["Value"], errors="coerce")
+
+        # Only keep valid rows (Type == "Percentage" and a numeric Value)
+        midf = midf[(midf["Type"] == "Percentage") & midf["Value"].notna()].copy()
+
+        if not midf.empty:
+            mi_options = midf["Marine Insurance"].tolist()
+            chosen_mi = st.sidebar.selectbox("Marine Insurance (from table)", mi_options, index=0)
+
+            sel = midf.loc[midf["Marine Insurance"] == chosen_mi].iloc[0]
+            pct = float(sel["Value"])  # e.g., 0.56 means 0.56%
+
+            # Convert % to cost per ton in GBP using base_buy
+            marine_insurance_gbp = (pct / 100.0) * base_buy
+
+            st.sidebar.caption(
+                f"Selected '{chosen_mi}': {pct:.2f}% of base buy → {BASE_SYMBOL}{marine_insurance_gbp:.2f}/t"
+            )
+        else:
+            st.warning("Marine insurance table has no valid 'Percentage' rows. Using manual input.")
+            marine_insurance_gbp = money_input_gbp("MARINE INSURANCE")
+    else:
+        st.warning("Marine insurance file missing required columns (Marine Insurance, Value, Type). Using manual input.")
+        marine_insurance_gbp = money_input_gbp("MARINE INSURANCE")
+else:
+    st.warning("Marine insurance file not found (marine_insurance.xlsx). Using manual input.")
+    marine_insurance_gbp = money_input_gbp("MARINE INSURANCE")
+
 stock_insurance_gbp     = money_input_gbp("STOCK INSURANCE")
 
 # ---------- Freight route table (optional) ----------
