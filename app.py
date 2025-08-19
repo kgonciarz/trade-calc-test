@@ -159,8 +159,9 @@ base_buy = buy_price
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
-carrier = st.sidebar.selectbox("Shipping Line (optional)", ["Auto (cheapest)"] + sorted(carrier_options))
-selected_carrier = None if carrier == "Auto (cheapest)" else carrier
+carrier = st.sidebar.selectbox("Shipping Line (optional)", ["Auto (priciest)"] + sorted(carrier_options))
+selected_carrier = None if carrier == "Auto (priciest)" else carrier
+
 
 selected_warehouse = st.sidebar.selectbox("Warehouse", sorted(warehouse_options))
 
@@ -385,7 +386,7 @@ def get_freight_per_ton(port_from, port_to, selected_carrier=None):
         costs = freight_costs[route]
         if selected_carrier and selected_carrier in costs:
             return round(costs[selected_carrier] / 25, 2)  # 25 t per 20' container
-        return round(min(costs.values()) / 25, 2)
+        return round(max(costs.values()) / 25, 2)
     else:
         st.error(f"No freight data available for route: {port_from} → {port_to}")
         return None
