@@ -134,7 +134,7 @@ warehouse_options = [
 st.sidebar.title("📦 Trade Parameters")
 st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
 
-volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=25)
+volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=1)
 buy_price = st.sidebar.number_input("Buy Price", value=7500.0, step=10.0, format="%.2f")
 buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
 # Set base currency symbol dynamically
