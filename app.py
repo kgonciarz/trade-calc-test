@@ -334,18 +334,8 @@ st.sidebar.caption(f"Stock Insurance = {stock_ins_pct:.2f}% of base → {BASE_SY
 
 
 # ---------- Freight route table (optional) ----------
-# --- Container selection & payload capacity ---
-container_size = st.sidebar.selectbox("Container size", ["20", "40"], index=0)
 
 # Defaults you actually use operationally (adjust if needed)
-default_tpc_by_size = {"20": 25.0, "40": 28.0}  # <- change 28.0 if your standard is different
-tons_per_container = st.sidebar.number_input(
-    "Tons per container",
-    min_value=1.0,
-    value=default_tpc_by_size[container_size],
-    step=0.5,
-    format="%.2f",
-)
 
 freight_costs = {}
 warehouse_costs = None  # ensure defined for later display
