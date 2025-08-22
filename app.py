@@ -387,29 +387,32 @@ else:
 
 
 
-def get_freight_per_ton(container: str, port_from: str, port_to: str, total_volume: float,
-                        selected_carrier: str | None = None, auto_mode: str = "priciest"):
+def get_freight_per_ton(
+    container: str,                # "20" or "40"
+    port_from: str,
+    port_to: str,
+    total_volume: float,           # UNUSED
+    selected_carrier: str | None = None,
+    auto_mode: str = "priciest",
+):
     """
-    Compute freight per ton from per-container cost.
-    total_volume = total shipment volume (tons).
-    Assumes full containers only.
+    Return freight in GBP per ton. `total_volume` is not needed and is ignored.
     """
     key = (container, port_from, port_to)
     if key not in freight_costs:
         st.error(f"No freight data for {container}' {port_from} → {port_to}")
         return None
 
-    costs = freight_costs[key]  # per-container GBP by carrier
+    costs = freight_costs[key]
+
     if selected_carrier and selected_carrier in costs:
         per_container = costs[selected_carrier]
     else:
-        per_container = (max if auto_mode == "priciest" else min)(costs.values())
+        chooser = max if auto_mode == "priciest" else min
+        per_container = chooser(costs.values())
 
-    # estimate number of containers from volume
-    tons_per_container = 25.0 if container == "20" else 28.0  # adjust if your ops use different
-    num_containers = (total_volume / tons_per_container)
-    per_ton = (per_container * num_containers) / total_volume
-
+    tons_per_container = 20.0 if container == "20" else 40.0
+    per_ton = per_container / tons_per_container
     return round(per_ton, 2)
 
 
@@ -471,10 +474,6 @@ with st.expander("📊 Manual Cost Breakdown (per ton)"):
 st.markdown(f"**Base buy (incl. Buying Diff): {base_currency_symbol}{base_buy:.2f}/t**")
 st.caption(f"(Buy Price {base_currency_symbol}{buy_price:.2f} + Buying Diff {base_currency_symbol}{buying_diff:.2f})")
 
-
-# ---------- Containers estimate ----------
-containers_needed = round(volume / 25)
-st.markdown(f"🧱 Estimated containers: **{containers_needed} × 20'**")
 
 # ---------- Base landed cost & financing (apply ONCE) ----------
 pre_finance_cost = (
