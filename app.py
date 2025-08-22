@@ -159,6 +159,7 @@ base_buy = buy_price
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
+container_size = st.sidebar.selectbox("Container Size", ["20", "40"], index=0)
 carrier = st.sidebar.selectbox("Shipping Line (optional)", ["Auto (priciest)"] + sorted(carrier_options))
 selected_carrier = None if carrier == "Auto (priciest)" else carrier
 
@@ -354,37 +355,28 @@ freight_costs = {}  # keys: (container_size, POL, POD) -> {carrier: cost_per_con
 
 if os.path.exists(excel_path):
     df_excel = pd.read_excel(excel_path)
-
-    # Normalize columns
     df_excel.columns = [str(c).strip().upper() for c in df_excel.columns]
 
-    # Filter by the selected container (ensure it matches your file values, e.g. "20" or "40")
+    # filter to chosen container
     if "CONTAINER" in df_excel.columns:
         df_excel["CONTAINER"] = df_excel["CONTAINER"].astype(str).str.strip()
         df_excel = df_excel[df_excel["CONTAINER"] == container_size].copy()
 
-    # Ensure data types
+    # normalize currencies
     if "CURRENCY" in df_excel.columns:
         df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
     df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
-
-    # Convert ALL_IN to GBP
     df_excel.loc[df_excel["CURRENCY"] == "EUR", "ALL_IN"] *= eur_gbp_rate
     df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] *= usd_gbp_rate
-    # If already GBP, leave as-is
+    # leave GBP as-is
 
-    # Validate required columns
-    for c in ["POL", "POD", "SHIPPING LINE", "ALL_IN"]:
-        if c not in df_excel.columns:
-            st.error(f"Freight file missing column: {c}")
-
-    # Clean names
+    # clean names
     df_excel = df_excel.dropna(subset=["POL", "POD", "SHIPPING LINE", "ALL_IN"])
     df_excel["POL"] = df_excel["POL"].astype(str).str.strip().str.upper()
     df_excel["POD"] = df_excel["POD"].astype(str).str.strip().str.upper()
     df_excel["SHIPPING LINE"] = df_excel["SHIPPING LINE"].astype(str).str.strip().str.upper()
 
-    # Store per-container costs in GBP keyed by (container, route)
+    # store cost per container
     for _, row in df_excel.iterrows():
         key = (container_size, row["POL"], row["POD"])
         carrier_name = row["SHIPPING LINE"]
@@ -394,12 +386,13 @@ else:
     st.warning("Freight file not found: logistics_freight_trade_calc.xlsx")
 
 
-def get_freight_per_ton(container: str, port_from: str, port_to: str, tpc: float,
+
+def get_freight_per_ton(container: str, port_from: str, port_to: str, total_volume: float,
                         selected_carrier: str | None = None, auto_mode: str = "priciest"):
     """
-    Return freight per ton in GBP for given container size ('20' or '40'),
-    route, and tons-per-container (tpc). When selected_carrier is None,
-    choose 'cheapest' or 'priciest' based on auto_mode.
+    Compute freight per ton from per-container cost.
+    total_volume = total shipment volume (tons).
+    Assumes full containers only.
     """
     key = (container, port_from, port_to)
     if key not in freight_costs:
@@ -412,11 +405,13 @@ def get_freight_per_ton(container: str, port_from: str, port_to: str, tpc: float
     else:
         per_container = (max if auto_mode == "priciest" else min)(costs.values())
 
-    if not tpc or tpc <= 0:
-        st.error("Invalid tons-per-container; please set a positive number.")
-        return None
+    # estimate number of containers from volume
+    tons_per_container = 25.0 if container == "20" else 28.0  # adjust if your ops use different
+    num_containers = (total_volume / tons_per_container)
+    per_ton = (per_container * num_containers) / total_volume
 
-    return round(per_container / tpc, 2)
+    return round(per_ton, 2)
+
 
 
 # Only fetch auto-freight if user did NOT override
@@ -425,12 +420,13 @@ if not use_manual_freight:
         container=container_size,
         port_from=port,
         port_to=destination,
-        tpc=tons_per_container,
-        selected_carrier=(None if carrier == "Auto (priciest)" else carrier),
-        auto_mode="priciest"  # to match your selector label
+        total_volume=volume,
+        selected_carrier=selected_carrier,
+        auto_mode="priciest"
     )
     if auto_freight is not None:
         freight_per_ton = auto_freight
+
 
 
 # ---------- Warehouse costs (optional file) ----------
