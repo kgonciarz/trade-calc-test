@@ -333,34 +333,48 @@ st.sidebar.caption(f"Stock Insurance = {stock_ins_pct:.2f}% of base → {BASE_SY
 
 
 # ---------- Freight route table (optional) ----------
+# --- Container selection & payload capacity ---
+container_size = st.sidebar.selectbox("Container size", ["20", "40"], index=0)
+
+# Defaults you actually use operationally (adjust if needed)
+default_tpc_by_size = {"20": 25.0, "40": 28.0}  # <- change 28.0 if your standard is different
+tons_per_container = st.sidebar.number_input(
+    "Tons per container",
+    min_value=1.0,
+    value=default_tpc_by_size[container_size],
+    step=0.5,
+    format="%.2f",
+)
+
 freight_costs = {}
 warehouse_costs = None  # ensure defined for later display
 
 excel_path = "logistics_freight_trade_calc.xlsx"
-freight_costs = {}
+freight_costs = {}  # keys: (container_size, POL, POD) -> {carrier: cost_per_container_GBP}
 
 if os.path.exists(excel_path):
     df_excel = pd.read_excel(excel_path)
 
     # Normalize columns
     df_excel.columns = [str(c).strip().upper() for c in df_excel.columns]
+
+    # Filter by the selected container (ensure it matches your file values, e.g. "20" or "40")
     if "CONTAINER" in df_excel.columns:
-        df_excel = df_excel[df_excel["CONTAINER"].astype(str).str.contains("20", na=False)].copy()
+        df_excel["CONTAINER"] = df_excel["CONTAINER"].astype(str).str.strip()
+        df_excel = df_excel[df_excel["CONTAINER"] == container_size].copy()
 
     # Ensure data types
     if "CURRENCY" in df_excel.columns:
         df_excel["CURRENCY"] = df_excel["CURRENCY"].astype(str).str.upper()
     df_excel["ALL_IN"] = pd.to_numeric(df_excel.get("ALL_IN"), errors="coerce")
 
-    # --- Convert ALL_IN to GBP ---
-    # Expecting file mostly in EUR; handle USD/GBP just in case.
-    # eur_gbp_rate: EUR → GBP, usd_gbp_rate: USD → GBP
+    # Convert ALL_IN to GBP
     df_excel.loc[df_excel["CURRENCY"] == "EUR", "ALL_IN"] *= eur_gbp_rate
     df_excel.loc[df_excel["CURRENCY"] == "USD", "ALL_IN"] *= usd_gbp_rate
     # If already GBP, leave as-is
 
     # Validate required columns
-    for c in ["POL", "POD", "SHIPPING LINE"]:
+    for c in ["POL", "POD", "SHIPPING LINE", "ALL_IN"]:
         if c not in df_excel.columns:
             st.error(f"Freight file missing column: {c}")
 
@@ -370,32 +384,54 @@ if os.path.exists(excel_path):
     df_excel["POD"] = df_excel["POD"].astype(str).str.strip().str.upper()
     df_excel["SHIPPING LINE"] = df_excel["SHIPPING LINE"].astype(str).str.strip().str.upper()
 
-    # Store route costs (per container, in GBP). You'll divide by 25 later.
+    # Store per-container costs in GBP keyed by (container, route)
     for _, row in df_excel.iterrows():
-        route = (row["POL"], row["POD"])
+        key = (container_size, row["POL"], row["POD"])
         carrier_name = row["SHIPPING LINE"]
         cost_gbp = float(row["ALL_IN"])
-        freight_costs.setdefault(route, {})[carrier_name] = cost_gbp
+        freight_costs.setdefault(key, {})[carrier_name] = cost_gbp
 else:
     st.warning("Freight file not found: logistics_freight_trade_calc.xlsx")
 
 
-def get_freight_per_ton(port_from, port_to, selected_carrier=None):
-    route = (port_from, port_to)
-    if route in freight_costs:
-        costs = freight_costs[route]
-        if selected_carrier and selected_carrier in costs:
-            return round(costs[selected_carrier] / 25, 2)  # 25 t per 20' container
-        return round(max(costs.values()) / 25, 2)
-    else:
-        st.error(f"No freight data available for route: {port_from} → {port_to}")
+def get_freight_per_ton(container: str, port_from: str, port_to: str, tpc: float,
+                        selected_carrier: str | None = None, auto_mode: str = "priciest"):
+    """
+    Return freight per ton in GBP for given container size ('20' or '40'),
+    route, and tons-per-container (tpc). When selected_carrier is None,
+    choose 'cheapest' or 'priciest' based on auto_mode.
+    """
+    key = (container, port_from, port_to)
+    if key not in freight_costs:
+        st.error(f"No freight data for {container}' {port_from} → {port_to}")
         return None
+
+    costs = freight_costs[key]  # per-container GBP by carrier
+    if selected_carrier and selected_carrier in costs:
+        per_container = costs[selected_carrier]
+    else:
+        per_container = (max if auto_mode == "priciest" else min)(costs.values())
+
+    if not tpc or tpc <= 0:
+        st.error("Invalid tons-per-container; please set a positive number.")
+        return None
+
+    return round(per_container / tpc, 2)
+
 
 # Only fetch auto-freight if user did NOT override
 if not use_manual_freight:
-    auto_freight = get_freight_per_ton(port, destination, selected_carrier)
+    auto_freight = get_freight_per_ton(
+        container=container_size,
+        port_from=port,
+        port_to=destination,
+        tpc=tons_per_container,
+        selected_carrier=(None if carrier == "Auto (priciest)" else carrier),
+        auto_mode="priciest"  # to match your selector label
+    )
     if auto_freight is not None:
         freight_per_ton = auto_freight
+
 
 # ---------- Warehouse costs (optional file) ----------
 warehouse_total_per_ton = 0.0
