@@ -250,7 +250,7 @@ cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
 docs_pct = st.sidebar.number_input(
     "DOCS COSTS (% of base buy)",
     min_value=0.0,
-    value=0.0,
+    value=0.2,
     step=0.1,
     format="%.2f"
 )
@@ -265,13 +265,13 @@ qc_type = st.sidebar.selectbox(
 )
 
 if qc_type == f"{base_currency_symbol}/t":
-    quality_claim_gbp = money_input_gbp("QUALITY CLAIM")
+    quality_claim_gbp = money_input_gbp("QUALITY CLAIM", default=50.0, default_ccy=buy_currency)
 else:
-    qc_pct = percent_cost_from_buy("QUALITY CLAIM")
-    quality_claim_gbp = (qc_pct / 100.0) * base_buy  # use base including Buying Diff
+    qc_pct = percent_cost_from_buy("QUALITY CLAIM", default_pct=0.0)
+    quality_claim_gbp = (qc_pct / 100.0) * base_buy
 
-wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
-weight_loss_gbp = (wl_pct / 100.0) * base_buy      # use base including Buying Diff
+wl_pct = percent_cost_from_buy("WEIGHT LOSS", default_pct=0.5)
+weight_loss_gbp = (wl_pct / 100.0) * base_buy
 
 qc_dep_gbp       = money_input_gbp("QUALITY CONTROLE DEP")
 qc_arr_gbp       = money_input_gbp("QUALITY CONTROLE ARR")
