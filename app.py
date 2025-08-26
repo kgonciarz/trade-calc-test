@@ -141,30 +141,6 @@ buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"],
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "€")
 
-# ---- Set first-run defaults for widgets ----
-if "QUALITY CLAIM_amt" not in st.session_state:
-    st.session_state["QUALITY CLAIM_amt"] = 50.0          # default £50/t
-if "QUALITY CLAIM_ccy" not in st.session_state:
-    st.session_state["QUALITY CLAIM_ccy"] = buy_currency  # or "GBP"
-
-if "QUALITY CLAIM_pct" not in st.session_state:
-    st.session_state["QUALITY CLAIM_pct"] = 0.0           # if user picks "% of buy"
-
-if "WEIGHT LOSS_pct" not in st.session_state:
-    st.session_state["WEIGHT LOSS_pct"] = 0.5             # default 0.5%
-
-if "DOCS COSTS (% of base buy)" not in st.session_state:
-    st.session_state["DOCS COSTS (% of base buy)"] = 0.2  # default 0.2%
-
-if "QUALITY CONTROLE DEP_amt" not in st.session_state:
-    st.session_state["QUALITY CONTROLE DEP_amt"] = 2.0    # default 2
-if "QUALITY CONTROLE DEP_ccy" not in st.session_state:
-    st.session_state["QUALITY CONTROLE DEP_ccy"] = buy_currency
-
-if "QUALITY CONTROLE ARR_amt" not in st.session_state:
-    st.session_state["QUALITY CONTROLE ARR_amt"] = 2.0    # default 2
-if "QUALITY CONTROLE ARR_ccy" not in st.session_state:
-    st.session_state["QUALITY CONTROLE ARR_ccy"] = buy_currency
 
 
 st.sidebar.title("📦 Trade Parameters")
