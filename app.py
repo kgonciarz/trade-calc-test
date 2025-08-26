@@ -241,8 +241,8 @@ else:
 wl_pct = percent_cost_from_buy("WEIGHT LOSS", default_pct=0.5)
 weight_loss_gbp = (wl_pct / 100.0) * base_buy
 
-qc_dep_gbp       = money_input_gbp("QUALITY CONTROLE DEP")
-qc_arr_gbp       = money_input_gbp("QUALITY CONTROLE ARR")
+qc_dep_gbp = money_input_gbp("QUALITY CONTROLE DEP", default=2.0, default_ccy=buy_currency)
+qc_arr_gbp = money_input_gbp("QUALITY CONTROLE ARR", default=2.0, default_ccy=buy_currency)
 origin_agent_gbp = money_input_gbp("ORIGIN AGENT")
 dest_agent_gbp   = money_input_gbp("DESTINATION AGENT")
 
