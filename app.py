@@ -225,7 +225,8 @@ st.sidebar.caption(f"Docs Costs = {docs_pct:.2f}% of base → {BASE_SYMBOL}{docs
 qc_type = st.sidebar.selectbox(
     f"QUALITY CLAIM type", 
     [f"{base_currency_symbol}/t", "% of buy"], 
-    index=0
+    index=0,
+    value=50.0
 )
 
 if qc_type == f"{base_currency_symbol}/t":
