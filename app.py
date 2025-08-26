@@ -142,18 +142,6 @@ currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "€")
 
 
-
-st.sidebar.title("📦 Trade Parameters")
-st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
-
-volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=1)
-buy_price = st.sidebar.number_input("Buy Price", value=7500.0, step=10.0, format="%.2f")
-buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
-# Set base currency symbol dynamically
-currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
-base_currency_symbol = currency_symbols.get(buy_currency, "€")
-
-
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "EUR":
     buy_price *= eur_gbp_rate
