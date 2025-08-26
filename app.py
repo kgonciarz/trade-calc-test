@@ -224,7 +224,7 @@ quality_claim_gbp = money_input_gbp(
 )
 
 
-wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
+wl_pct          = percent_cost_from_buy("WEIGHT LOSS", default_pct=0.5)
 weight_loss_gbp = (wl_pct / 100.0) * base_buy      # use base including Buying Diff
 
 qc_dep_gbp       = money_input_gbp("QUALITY CONTROLE DEP")
