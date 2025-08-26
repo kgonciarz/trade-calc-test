@@ -141,7 +141,48 @@ buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"],
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "€")
 
+# ---- Set first-run defaults for widgets ----
+if "QUALITY CLAIM_amt" not in st.session_state:
+    st.session_state["QUALITY CLAIM_amt"] = 50.0          # default £50/t
+if "QUALITY CLAIM_ccy" not in st.session_state:
+    st.session_state["QUALITY CLAIM_ccy"] = buy_currency  # or "GBP"
 
+if "QUALITY CLAIM_pct" not in st.session_state:
+    st.session_state["QUALITY CLAIM_pct"] = 0.0           # if user picks "% of buy"
+
+if "WEIGHT LOSS_pct" not in st.session_state:
+    st.session_state["WEIGHT LOSS_pct"] = 0.5             # default 0.5%
+
+if "DOCS COSTS (% of base buy)" not in st.session_state:
+    st.session_state["DOCS COSTS (% of base buy)"] = 0.2  # default 0.2%
+
+if "QUALITY CONTROLE DEP_amt" not in st.session_state:
+    st.session_state["QUALITY CONTROLE DEP_amt"] = 2.0    # default 2
+if "QUALITY CONTROLE DEP_ccy" not in st.session_state:
+    st.session_state["QUALITY CONTROLE DEP_ccy"] = buy_currency
+
+if "QUALITY CONTROLE ARR_amt" not in st.session_state:
+    st.session_state["QUALITY CONTROLE ARR_amt"] = 2.0    # default 2
+if "QUALITY CONTROLE ARR_ccy" not in st.session_state:
+    st.session_state["QUALITY CONTROLE ARR_ccy"] = buy_currency
+
+
+st.sidebar.title("📦 Trade Parameters")
+st.sidebar.markdown("## 🧾 Manual Cost Inputs (per ton)")
+
+volume = st.sidebar.number_input("Volume (tons)", min_value=1, value=1)
+buy_price = st.sidebar.number_input("Buy Price", value=7500.0, step=10.0, format="%.2f")
+buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
+# Set base currency symbol dynamically
+currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
+base_currency_symbol = currency_symbols.get(buy_currency, "€")
+
+
+# Convert buy price to EUR for all subsequent calc
+if buy_currency == "EUR":
+    buy_price *= eur_gbp_rate
+elif buy_currency == "USD":
+    buy_price *= usd_gbp_rate
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "EUR":
     buy_price *= eur_gbp_rate
@@ -209,22 +250,27 @@ cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
 docs_pct = st.sidebar.number_input(
     "DOCS COSTS (% of base buy)",
     min_value=0.0,
-    value=0.2,
+    value=0.0,
     step=0.1,
     format="%.2f"
 )
 docs_costs_gbp = (docs_pct / 100.0) * base_buy
 st.sidebar.caption(f"Docs Costs = {docs_pct:.2f}% of base → {BASE_SYMBOL}{docs_costs_gbp:.2f}/t")
 
-# QUALITY CLAIM — always currency per metric ton (default 50/t)
-quality_claim_gbp = money_input_gbp(
-    "QUALITY CLAIM",
-    default=50.0,                 
-    default_ccy=buy_currency      
+
+qc_type = st.sidebar.selectbox(
+    f"QUALITY CLAIM type", 
+    [f"{base_currency_symbol}/t", "% of buy"], 
+    index=0
 )
 
+if qc_type == f"{base_currency_symbol}/t":
+    quality_claim_gbp = money_input_gbp("QUALITY CLAIM")
+else:
+    qc_pct = percent_cost_from_buy("QUALITY CLAIM")
+    quality_claim_gbp = (qc_pct / 100.0) * base_buy  # use base including Buying Diff
 
-wl_pct          = percent_cost_from_buy("WEIGHT LOSS", default_pct=0.5)
+wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
 weight_loss_gbp = (wl_pct / 100.0) * base_buy      # use base including Buying Diff
 
 qc_dep_gbp       = money_input_gbp("QUALITY CONTROLE DEP")
