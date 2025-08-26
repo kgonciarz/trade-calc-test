@@ -209,25 +209,20 @@ cert_premium_gbp   = money_input_gbp("CERT PREMIUM")
 docs_pct = st.sidebar.number_input(
     "DOCS COSTS (% of base buy)",
     min_value=0.0,
-    value=0.0,
+    value=0.2,
     step=0.1,
     format="%.2f"
 )
 docs_costs_gbp = (docs_pct / 100.0) * base_buy
 st.sidebar.caption(f"Docs Costs = {docs_pct:.2f}% of base → {BASE_SYMBOL}{docs_costs_gbp:.2f}/t")
 
-
-qc_type = st.sidebar.selectbox(
-    f"QUALITY CLAIM type", 
-    [f"{base_currency_symbol}/t", "% of buy"], 
-    index=0
+# QUALITY CLAIM — always currency per metric ton (default 50/t)
+quality_claim_gbp = money_input_gbp(
+    "QUALITY CLAIM",
+    default=50.0,                 
+    default_ccy=buy_currency      
 )
 
-if qc_type == f"{base_currency_symbol}/t":
-    quality_claim_gbp = money_input_gbp("QUALITY CLAIM")
-else:
-    qc_pct = percent_cost_from_buy("QUALITY CLAIM")
-    quality_claim_gbp = (qc_pct / 100.0) * base_buy  # use base including Buying Diff
 
 wl_pct          = percent_cost_from_buy("WEIGHT LOSS")
 weight_loss_gbp = (wl_pct / 100.0) * base_buy      # use base including Buying Diff
