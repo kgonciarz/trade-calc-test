@@ -241,9 +241,9 @@ qc_type = st.sidebar.selectbox(
 )
 
 if qc_type == f"{base_currency_symbol}/t":
-    quality_claim_gbp = money_input_gbp("QUALITY CLAIM", default=50.0, default_ccy=buy_currency)
+    quality_claim_gbp = money_input_gbp("QUALITY CLAIM")
 else:
-    qc_pct = percent_cost_from_buy("QUALITY CLAIM", default_pct=0.0)
+    qc_pct = percent_cost_from_buy("QUALITY CLAIM")
     quality_claim_gbp = (qc_pct / 100.0) * base_buy
 
 wl_pct = percent_cost_from_buy("WEIGHT LOSS", default_pct=0.5)
