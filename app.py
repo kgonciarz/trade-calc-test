@@ -198,6 +198,7 @@ buying_diff = st.sidebar.number_input(
     step=1,
 )
 base_buy = buy_price
+base_buy_incl = buy_price + buying_diff
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
@@ -595,7 +596,7 @@ with st.expander("📊 Manual Cost Breakdown (per ton)"):
     st.write(f"🧮 Manual costs subtotal: **{base_currency_symbol}{manual_subtotal:.2f}**")
 
 # Show the base buy clearly
-st.markdown(f"**Base buy (incl. Buying Diff): {base_currency_symbol}{base_buy:.2f}/t**")
+st.markdown(f"**Base buy (incl. Buying Diff): {base_currency_symbol}{base_buy_incl:.2f}/t**")
 st.caption(f"(Buy Price {base_currency_symbol}{buy_price:.2f} + Buying Diff {base_currency_symbol}{buying_diff:.2f})")
 
 
