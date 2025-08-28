@@ -434,7 +434,6 @@ if not use_manual_freight:
 # ---------- Warehouse costs (GBP/t; apply months to WAREHOUSE RENT) ----------
 warehouse_total_per_ton = 0.0
 warehouse_excel_path = "warehouse_costs.xlsx"
-warehouse_costs = None  # adjusted series we will display
 
 # let user choose how many months of rent to apply
 rent_months = st.sidebar.number_input(
