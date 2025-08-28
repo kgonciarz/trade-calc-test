@@ -170,6 +170,14 @@ selected_carrier = None if carrier == "Auto (priciest)" else carrier
 
 
 selected_warehouse = st.sidebar.selectbox("Warehouse", sorted(warehouse_options))
+rent_months = st.sidebar.number_input(
+    "Warehouse rent (months)",
+    min_value=0,
+    value=1,    # default months
+    step=1,
+    key="warehouse_rent_months",
+    help="Multiply the 'WAREHOUSE RENT' line in the Excel by this many months."
+)
 
 payment_days = st.sidebar.number_input("Payment Terms (days)", min_value=0, value=30, step=1)
 if payment_days > 0:
@@ -434,12 +442,6 @@ if not use_manual_freight:
 # ---------- Warehouse costs (GBP/t; apply months to WAREHOUSE RENT) ----------
 warehouse_total_per_ton = 0.0
 warehouse_excel_path = "warehouse_costs.xlsx"
-
-# let user choose how many months of rent to apply
-rent_months = st.sidebar.number_input(
-    "Warehouse rent (months)",
-    min_value=0, value=1, step=1, key="warehouse_rent_months"
-)
 
 if os.path.exists(warehouse_excel_path):
     warehouse_df = pd.read_excel(warehouse_excel_path, index_col=0)
