@@ -260,6 +260,9 @@ freight_per_ton = None
 if use_manual_freight:
     freight_per_ton = money_input_gbp("FREIGHT")
 
+# --- EUDR / TRACEABILITY FEES (GBP per ton) ---
+eudr_fee_gbp = money_input_gbp("EUDR / TRACEABILITY FEES", default=50.0, default_ccy=buy_currency)
+
 
 # --- DRESSING from Excel (auto) with fallback to manual ---
 dressing_excel = "Dressing.xlsx"  # file with columns: Dressing, Value, Currency
@@ -491,6 +494,7 @@ manual_rows = [
     {"Cost Item": "DRESSING",               "GBP/ton": round(dressing_gbp, 2)},
     {"Cost Item": "FREIGHT CORRECTION",     "GBP/ton": round(freight_correction_gbp, 2)},
     {"Cost Item": "MARINE INSURANCE",       "GBP/ton": round(marine_insurance_gbp, 2)},
+    {"Cost Item": "EUDR / TRACEABILITY FEES", "GBP/ton": round(eudr_fee_gbp, 2)},
     {"Cost Item": "STOCK INSURANCE",        "GBP/ton": round(stock_insurance_gbp, 2)},
 ]
 manual_df = pd.DataFrame(manual_rows)
