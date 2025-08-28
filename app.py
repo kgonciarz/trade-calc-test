@@ -478,6 +478,57 @@ if os.path.exists(warehouse_excel_path):
 else:
     st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
 
+# ---------- TRANSPORT (inland) from Excel: EUR per truck -> GBP per ton ----------
+transport_per_ton_gbp = 0.0
+transport_excel = "Transport.xlsx"  # adjust if your file is named differently
+
+use_transport = st.sidebar.checkbox("Add TRANSPORT (inland)?", value=False, key="use_transport")
+
+if use_transport:
+    if os.path.exists(transport_excel):
+        tdf = pd.read_excel(transport_excel)
+
+        # Normalize
+        tdf.columns = [str(c).strip().upper() for c in tdf.columns]   # POL, POD, SERVICE PROVIDER, RATE, ...
+        for col in ("POL", "POD", "SERVICE PROVIDER"):
+            if col in tdf.columns:
+                tdf[col] = tdf[col].astype(str).str.strip().str.upper()
+        if "RATE" in tdf.columns:
+            tdf["RATE"] = pd.to_numeric(tdf["RATE"], errors="coerce")  # EUR per truck
+
+        # Build choices from the data
+        pol_opts = sorted(tdf["POL"].dropna().unique())
+        sel_pol = st.sidebar.selectbox("Transport POL", pol_opts, key="t_pol")
+
+        pod_opts = sorted(tdf.loc[tdf["POL"] == sel_pol, "POD"].dropna().unique())
+        sel_pod = st.sidebar.selectbox("Transport POD", pod_opts, key="t_pod")
+
+        # Providers for that route
+        route_df = tdf[(tdf["POL"] == sel_pol) & (tdf["POD"] == sel_pod)].dropna(subset=["RATE"])
+        if route_df.empty:
+            st.sidebar.warning("No transport rate for that POL/POD.")
+        else:
+            # default to the cheapest provider
+            route_df = route_df.sort_values("RATE")
+            provider_labels = [
+                f'{r["SERVICE PROVIDER"]} — €{r["RATE"]:,.2f}/truck'
+                for _, r in route_df.iterrows()
+            ]
+            sel_idx = st.sidebar.selectbox("Service Provider", list(range(len(provider_labels))),
+                                           format_func=lambda i: provider_labels[i], key="t_provider_idx")
+
+            selected_row = route_df.iloc[int(sel_idx)]
+            rate_eur = float(selected_row["RATE"])
+
+            # EUR -> GBP, then per ton (24 t/truck)
+            transport_per_ton_gbp = (rate_eur * eur_gbp_rate) / 24.0
+
+            st.sidebar.caption(
+                f"Transport: €{rate_eur:,.2f}/truck → £{(rate_eur*eur_gbp_rate):,.2f}/truck → "
+                f"£{transport_per_ton_gbp:,.2f}/t (÷24)"
+            )
+    else:
+        st.warning(f"Transport file not found: {transport_excel}")
 
 # ---------- Manual cost table (EXCLUDES Buying Diff) ----------
 manual_rows = [
@@ -496,6 +547,8 @@ manual_rows = [
     {"Cost Item": "MARINE INSURANCE",       "GBP/ton": round(marine_insurance_gbp, 2)},
     {"Cost Item": "EUDR / TRACEABILITY FEES", "GBP/ton": round(eudr_fee_gbp, 2)},
     {"Cost Item": "STOCK INSURANCE",        "GBP/ton": round(stock_insurance_gbp, 2)},
+    {"Cost Item": "TRANSPORT (inland)", "GBP/ton": round(transport_per_ton_gbp, 2)},
+
 ]
 manual_df = pd.DataFrame(manual_rows)
 manual_subtotal = float(manual_df["GBP/ton"].sum())
