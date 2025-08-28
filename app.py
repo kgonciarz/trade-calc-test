@@ -141,7 +141,45 @@ buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"],
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "€")
 
+# ---- Use ICE futures via Yahoo (delayed) for Buy Price ----
+COCOA_DELIVERY_MONTHS = [("Mar","H"), ("May","K"), ("Jul","N"), ("Sep","U"), ("Dec","Z")]
 
+use_ice = st.sidebar.toggle(
+    "Use ICE futures for Buy Price (Yahoo, delayed)",
+    value=False,
+    help="Fetch month/year-specific ICE cocoa via Yahoo. Falls back to CC=F."
+)
+
+ice_month_name = st.sidebar.selectbox("ICE month", [n for n,_ in COCOA_DELIVERY_MONTHS], index=0)
+ice_month_code = dict(COCOA_DELIVERY_MONTHS)[ice_month_name]
+ice_year_full  = st.sidebar.number_input("ICE year", min_value=2024, max_value=2035,
+                                         value=datetime.now().year, step=1)
+ice_yy = str(ice_year_full)[-2:]    # e.g., 2025 -> "25"
+ice_contract = f"CC{ice_month_code}{ice_yy}"  # e.g., CCZ24
+st.sidebar.caption(f"Selected contract: **{ice_contract}**")
+
+@st.cache_data(ttl=900, show_spinner=False)  # cache 15 minutes
+def fetch_cocoa_contract_usd(contract: str):
+    import yfinance as yf
+    symbols = (f"{contract}.NYB", contract, "CC=F")  # try in this order
+    for sym in symbols:
+        try:
+            t = yf.Ticker(sym)
+            h = t.history(period="1d")
+            if not h.empty and "Close" in h.columns:
+                return float(h["Close"].iloc[-1]), sym
+        except Exception:
+            pass
+    return None, None
+if use_ice:
+    ice_usd, used_symbol = fetch_cocoa_contract_usd(ice_contract)
+    if ice_usd is not None:
+        buy_price = ice_usd * usd_gbp_rate      # USD/t -> GBP/t
+        buy_currency = "GBP"                    # prevent re-conversion later
+        base_currency_symbol = "£"
+        st.sidebar.caption(f"{used_symbol}: ${ice_usd:,.2f}/t → £{buy_price:,.2f}/t")
+    else:
+        st.sidebar.warning("Couldn’t fetch ICE price; using manual Buy Price.")
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "EUR":
     buy_price *= eur_gbp_rate
