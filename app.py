@@ -196,7 +196,6 @@ buying_diff = st.sidebar.number_input(
     "Buying Diff (GBP per ton)",
     value=0,
     step=1,
-    format="%.2f",
 )
 base_buy = buy_price
 
