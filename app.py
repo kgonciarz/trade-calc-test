@@ -193,9 +193,9 @@ elif buy_currency == "USD":
 
 # 👉 Buying Diff is part of the base price, not a cost
 buying_diff = st.sidebar.number_input(
-    "Buying Diff (€ per ton)",
-    value=0.0,
-    step=10.0,
+    "Buying Diff (GBP per ton)",
+    value=0,
+    step=1,
     format="%.2f",
 )
 base_buy = buy_price
