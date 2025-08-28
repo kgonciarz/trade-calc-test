@@ -431,19 +431,49 @@ if not use_manual_freight:
 
 
 
-# ---------- Warehouse costs (optional file) ----------
+# ---------- Warehouse costs (GBP/t; apply months to WAREHOUSE RENT) ----------
 warehouse_total_per_ton = 0.0
 warehouse_excel_path = "warehouse_costs.xlsx"
+warehouse_costs = None  # adjusted series we will display
+
+# let user choose how many months of rent to apply
+rent_months = st.sidebar.number_input(
+    "Warehouse rent (months)",
+    min_value=0, value=1, step=1, key="warehouse_rent_months"
+)
+
 if os.path.exists(warehouse_excel_path):
     warehouse_df = pd.read_excel(warehouse_excel_path, index_col=0)
+
+    # Normalize headers + row labels
+    warehouse_df.columns = [str(c).strip() for c in warehouse_df.columns]
+    warehouse_df.index = warehouse_df.index.map(lambda x: str(x).strip().upper())
+
     if selected_warehouse in warehouse_df.columns:
-        # assuming values in GBP/t → convert to EUR/t
-        warehouse_costs = warehouse_df[selected_warehouse].dropna()
-        warehouse_total_per_ton = float(warehouse_costs.sum())
+        base_series = warehouse_df[selected_warehouse].dropna()   # GBP/t
+        series = base_series.copy()
+
+        # Identify the rent row (column A label)
+        RENT_ALIASES = {"WAREHOUSE RENT", "RENT", "STORAGE RENT"}
+        rent_key = next((k for k in RENT_ALIASES if k in series.index), None)
+
+        if rent_key:
+            rent_per_month = float(series.loc[rent_key])
+            series.loc[rent_key] = rent_per_month * rent_months
+            st.sidebar.caption(
+                f"Warehouse rent: {base_currency_symbol}{rent_per_month:.2f}/t × {rent_months} mo = "
+                f"{base_currency_symbol}{rent_per_month*rent_months:.2f}/t"
+            )
+        else:
+            st.sidebar.caption("No 'WAREHOUSE RENT' row found; no monthly multiplier applied.")
+
+        warehouse_costs = series
+        warehouse_total_per_ton = float(series.sum())
     else:
         st.warning(f"No cost data found for selected warehouse: {selected_warehouse}")
 else:
     st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
+
 
 # ---------- Manual cost table (EXCLUDES Buying Diff) ----------
 manual_rows = [
