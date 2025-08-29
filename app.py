@@ -602,7 +602,7 @@ st.caption(f"(Buy Price {base_currency_symbol}{buy_price:.2f} + Buying Diff {bas
 
 # ---------- Base landed cost & financing (apply ONCE) ----------
 pre_finance_cost = (
-    base_buy
+    base_buy_incl
     + manual_subtotal
     + warehouse_total_per_ton
     + (freight_per_ton or 0.0)
