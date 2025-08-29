@@ -579,7 +579,7 @@ manual_rows = [
     {"Cost Item": "QUALITY CONTROLE ARR",   "GBP/ton": round(qc_arr_gbp, 2)},
     {"Cost Item": "ORIGIN AGENT",           "GBP/ton": round(origin_agent_gbp, 2)},
     {"Cost Item": "DESTINATION AGENT",      "GBP/ton": round(dest_agent_gbp, 2)},
-    {"Cost Item": "FREIGHT",                "GBP/ton": round((freight_per_ton or 0.0), 2)},
+    ##{"Cost Item": "FREIGHT",                "GBP/ton": round((freight_per_ton or 0.0), 2)},
     {"Cost Item": "DRESSING",               "GBP/ton": round(dressing_gbp, 2)},
     {"Cost Item": "FREIGHT CORRECTION",     "GBP/ton": round(freight_correction_gbp, 2)},
     {"Cost Item": "MARINE INSURANCE",       "GBP/ton": round(marine_insurance_gbp, 2)},
