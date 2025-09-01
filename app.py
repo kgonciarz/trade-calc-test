@@ -268,23 +268,29 @@ st.sidebar.markdown(f"- **USD/EUR**: {usd_eur_rate}")
 st.sidebar.markdown(f"- **GBP/EUR**: {gbp_eur_rate}")
 st.sidebar.markdown(f"- **GBP/USD**: {gbp_usd_rate}")
 
-calc_type = st.sidebar.selectbox("Calculation Type", ["Sell Price Calculation", "Margin Calculation"])
-is_reverse = (calc_type == "Margin Calculation")
+# --- SELL PRICE (default GBP, user can change) ---
+sell_currency_input = st.sidebar.selectbox(
+    "Sell Price Currency", ["GBP", "EUR", "USD"], index=0, key="sell_ccy"
+)
 
-if is_reverse:
-    sell_price = None
-    target_margin = st.sidebar.number_input(
-        f"Target Margin ({base_currency_symbol} per ton)",  # show GBP symbol
-        min_value=0.0, value=200.0, step=10.0
-    )
-else:
-    target_margin = None
-    # user enters price in the chosen currency
-    sell_price_input = st.sidebar.number_input("Sell Price", min_value=0.0, value=8500.0, step=10.0)
-    
-    sell_price = to_base(sell_price_input, sell_currency)
-    sell_currency = "GBP"  
-    st.sidebar.caption(f"Sell normalized to GBP: £{sell_price:,.2f}/t")
+sell_price_input = st.sidebar.number_input(
+    f"Sell Price ({sell_currency_input} per ton)",
+    min_value=0.0, value=8500.0, step=10.0, format="%.2f", key="sell_price_input"
+)
+
+# Normalize to GBP exactly once for calculations
+sell_price = to_base(sell_price_input, sell_currency_input)   # -> GBP
+sell_currency = "GBP"  # keep downstream logic in GBP
+
+# UI hint so it's clear what happened
+st.sidebar.caption(
+    f"Sell normalized to GBP: £{sell_price:,.2f}/t "
+    f"(entered {sell_currency_input} {sell_price_input:,.2f}/t)"
+)
+
+# If you show FX commentary, use the *original* currencies for context:
+trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency_input)
+
 
 
 # For AI commentary
@@ -880,48 +886,28 @@ pdf_name = st.text_input("📄 PDF file name", value=default_name)
 
 if st.button("Generate PDF"):
     # Figure out mode-specific values
-    mode_label = "Margin Calculation" if not is_reverse else "Target Margin Mode"
-
-    # In target-margin mode you likely computed required_sell_price above:
+    mode_label = "Margin Calculation"
     req_sell = None
-    if is_reverse:
-        # ensure you use the same formula you use in the UI
-        req_sell = cost_per_ton + (target_margin or 0.0)
+    m_pt = (sell_price or 0.0) - cost_per_ton
+    t_m  = m_pt * volume
 
-    # In sell-price mode you computed margin_per_ton & total_margin above:
-    m_pt = None
-    t_m  = None
-    if not is_reverse:
-        m_pt = ((sell_price or 0.0) + buying_diff) - cost_per_ton  # matches your logic
-        t_m = m_pt * volume
+    pdf_buf = build_pdf_report(
+        base_symbol=base_currency_symbol if 'base_currency_symbol' in globals() else "£",
+        buy_price=buy_price,                # or buy_price if you kept that name as GBP
+        buying_diff=buying_diff,
+        base_buy=base_buy_incl,                 # show inclusive base
+        manual_df=manual_df,
+        manual_subtotal=manual_subtotal,
+        freight_per_ton=freight_per_ton or 0.0,
+        warehouse_total_per_ton=warehouse_total_per_ton,
+        financing_per_ton=financing_per_ton if 'financing_per_ton' in globals() else 0.0,
+        cost_per_ton=cost_per_ton,
+        mode_label=mode_label,
+        sell_price=(sell_price or 0.0),
+        target_margin=None,
+        margin_per_ton=m_pt,
+        total_margin=t_m,
+        required_sell_price=None,
+        volume=volume,
+    )
 
-    try:
-        pdf_buf = build_pdf_report(
-            base_symbol=base_currency_symbol if 'base_currency_symbol' in globals() else "£",
-            buy_price=buy_price,
-            buying_diff=buying_diff,
-            base_buy=base_buy,  # your “buy + buying diff” or just “buy” per your final logic
-            manual_df=manual_df,
-            manual_subtotal=manual_subtotal,
-            freight_per_ton=freight_per_ton or 0.0,
-            warehouse_total_per_ton=warehouse_total_per_ton,
-            financing_per_ton=financing_per_ton if 'financing_per_ton' in globals() else 0.0,
-            cost_per_ton=cost_per_ton,
-            mode_label=mode_label,
-            sell_price=(sell_price or 0.0),
-            target_margin=(target_margin or 0.0),
-            margin_per_ton=m_pt,
-            total_margin=t_m,
-            required_sell_price=req_sell,
-            volume=volume,
-        )
-
-        st.success("PDF generated! Click to download:")
-        st.download_button(
-            label="⬇️ Download PDF",
-            data=pdf_buf,
-            file_name=pdf_name if pdf_name.strip().lower().endswith(".pdf") else (pdf_name.strip() + ".pdf"),
-            mime="application/pdf",
-        )
-    except Exception as e:
-        st.error(f"Failed to generate PDF: {e}")
