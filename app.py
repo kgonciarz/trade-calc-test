@@ -139,7 +139,7 @@ buy_price = st.sidebar.number_input("Buy Price", value=7500.0, step=10.0, format
 buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
 # Set base currency symbol dynamically
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
-base_currency_symbol = currency_symbols.get(buy_currency, "€")
+base_currency_symbol = currency_symbols.get(buy_currency, "£")
 
 # ---- Use ICE futures via Yahoo (delayed) for Buy Price ----
 COCOA_DELIVERY_MONTHS = [("Mar","H"), ("May","K"), ("Jul","N"), ("Sep","U"), ("Dec","Z")]
