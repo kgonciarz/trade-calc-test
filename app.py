@@ -60,13 +60,13 @@ def choose_trade_fx(buy_ccy: str, sell_ccy: str):
     Pick a single FX rate + label to summarize the main currency risk
     for the AI commentary. If both are EUR, return 1.0.
     """
-    buy_ccy = (buy_ccy or "EUR").upper()
-    sell_ccy = (sell_ccy or "EUR").upper()
+    buy_ccy = (buy_ccy or "GBP").upper()
+    sell_ccy = (sell_ccy or "GBP").upper()
     if "USD" in (buy_ccy, sell_ccy):
-        return usd_eur_rate, "USD→EUR"
-    if "GBP" in (buy_ccy, sell_ccy):
-        return gbp_eur_rate, "GBP→EUR"
-    return 1.0, "EUR"
+        return usd_gbp_rate, "USD→GBP"
+    if "EUR" in (buy_ccy, sell_ccy):
+        return eur_gbp_rate, "EUR→GBP"
+    return 1.0, "GBP"
 
 # ---------- Input widgets helpers ----------
 def money_input_gbp(label: str, default: float = 0.0, default_ccy: str = "GBP"):
