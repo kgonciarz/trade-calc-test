@@ -273,15 +273,19 @@ is_reverse = (calc_type == "Margin Calculation")
 
 if is_reverse:
     sell_price = None
-    target_margin = st.sidebar.number_input("Target Margin (€ per ton)", min_value=0.0, value=200.0, step=10.0)
+    target_margin = st.sidebar.number_input(
+        f"Target Margin ({base_currency_symbol} per ton)",  # show GBP symbol
+        min_value=0.0, value=200.0, step=10.0
+    )
 else:
     target_margin = None
-    sell_price = st.sidebar.number_input("Sell Price", min_value=0.0, value=8500.0, step=10.0)
-    # convert sell price to EUR if needed
-    if sell_currency == "USD":
-        sell_price *= usd_eur_rate
-    elif sell_currency == "GBP":
-        sell_price *= gbp_eur_rate
+    # user enters price in the chosen currency
+    sell_price_input = st.sidebar.number_input("Sell Price", min_value=0.0, value=8500.0, step=10.0)
+    
+    sell_price = to_base(sell_price_input, sell_currency)
+    sell_currency = "GBP"  
+    st.sidebar.caption(f"Sell normalized to GBP: £{sell_price:,.2f}/t")
+
 
 # For AI commentary
 trade_fx_rate, trade_fx_label = choose_trade_fx(buy_currency, sell_currency)
