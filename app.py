@@ -314,16 +314,19 @@ docs_costs_gbp = (docs_pct / 100.0) * base_buy
 st.sidebar.caption(f"Docs Costs = {docs_pct:.2f}% of base → {BASE_SYMBOL}{docs_costs_gbp:.2f}/t")
 
 
-# QUALITY CLAIM — fixed GBP per ton (no % option, no conversion)
-quality_claim_gbp = st.sidebar.number_input(
-    "QUALITY CLAIM (GBP/t)",
-    min_value=0.0,
-    value=50.0,     # default
-    step=10.0,
-    format="%.2f",
-    key="quality_claim_gbp"
+# QUALITY CLAIM — amount per ton, user can change currency; stored in GBP
+quality_claim_gbp = money_input_gbp(
+    "QUALITY CLAIM",
+    default=50.0,      # default amount
+    default_ccy="GBP"  # default currency shown in the dropdown
 )
 
+# (Optional) show what was entered vs stored
+sel_ccy = st.session_state.get("QUALITY CLAIM_ccy", "GBP")
+raw_amt = st.session_state.get("QUALITY CLAIM_amt", 50.0)
+st.sidebar.caption(
+    f"QC entered: {currency_symbols.get(sel_ccy,'£')}{raw_amt:,.2f}/t → stored as £{quality_claim_gbp:,.2f}/t"
+)
 
 
 
