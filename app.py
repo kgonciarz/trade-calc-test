@@ -158,28 +158,64 @@ ice_yy = str(ice_year_full)[-2:]    # e.g., 2025 -> "25"
 ice_contract = f"CC{ice_month_code}{ice_yy}"  # e.g., CCZ24
 st.sidebar.caption(f"Selected contract: **{ice_contract}**")
 
-@st.cache_data(ttl=900, show_spinner=False)  # cache 15 minutes
-def fetch_cocoa_contract_usd(contract: str):
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_cocoa_contract_usd(contract: str, nonce: int = 0):
+    """
+    Robust Yahoo fetch:
+      - tries <contract>.NYB, <contract>, then CC=F
+      - tries multiple periods so weekends/holidays still return last close
+      - returns (price_usd, used_symbol, last_bar_date, error_text)
+      - 'nonce' only forces a refetch when you click Refresh
+    """
     import yfinance as yf
-    symbols = (f"{contract}.NYB", contract, "CC=F")  # try in this order
+    tried, last_err = [], None
+    symbols = (f"{contract}.NYB", contract, "CC=F")
+    # try short to longer lookback so we still get a recent bar
+    periods = [("1d", "1d"), ("5d", "1d"), ("1mo", "1d"), ("3mo", "1d")]
+
     for sym in symbols:
+        tried.append(sym)
         try:
             t = yf.Ticker(sym)
-            h = t.history(period="1d")
-            if not h.empty and "Close" in h.columns:
-                return float(h["Close"].iloc[-1]), sym
-        except Exception:
-            pass
-    return None, None
+            for per, interval in periods:
+                h = t.history(period=per, interval=interval, auto_adjust=False)
+                if not h.empty and "Close" in h.columns:
+                    last_close = float(h["Close"].dropna().iloc[-1])
+                    last_date = str(h.index[-1].date())
+                    return last_close, sym, last_date, None
+            # fallback to fast_info if history was empty
+            try:
+                fi = getattr(t, "fast_info", None)
+                if fi and getattr(fi, "last_price", None):
+                    return float(fi.last_price), sym, None, None
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+        except Exception as e:
+            last_err = f"{type(e).__name__}: {e}"
+
+    return None, None, None, f"Tried {tried}; last error: {last_err}"
+
+# refresh button to bust the cache
+if "ice_nonce" not in st.session_state:
+    st.session_state["ice_nonce"] = 0
+if st.sidebar.button("🔄 Refresh ICE price"):
+    st.session_state["ice_nonce"] += 1
+
 if use_ice:
-    ice_usd, used_symbol = fetch_cocoa_contract_usd(ice_contract)
+    ice_usd, used_symbol, last_date, ice_err = fetch_cocoa_contract_usd(
+        ice_contract, nonce=st.session_state["ice_nonce"]
+    )
     if ice_usd is not None:
-        buy_price = ice_usd * usd_gbp_rate      # USD/t -> GBP/t
-        buy_currency = "GBP"                    # prevent re-conversion later
+        buy_price = ice_usd * usd_gbp_rate
+        buy_currency = "GBP"
         base_currency_symbol = "£"
-        st.sidebar.caption(f"{used_symbol}: ${ice_usd:,.2f}/t → £{buy_price:,.2f}/t")
+        date_note = f" (last bar {last_date})" if last_date else ""
+        st.sidebar.caption(f"{used_symbol}: ${ice_usd:,.2f}/t → £{buy_price:,.2f}/t{date_note}")
     else:
         st.sidebar.warning("Couldn’t fetch ICE price; using manual Buy Price.")
+        st.sidebar.caption(ice_err or "No data returned.")
+
+
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "EUR":
     buy_price *= eur_gbp_rate
