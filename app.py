@@ -25,7 +25,7 @@ now_ch = datetime.now(ZoneInfo("Europe/Zurich"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 st.set_page_config(layout="wide")
-st.title("🧮 Cocoa Trade Assistant — Forward & Reverse Margin Calculator")
+st.title("🧮 Cocoa Trade Assistant — Margin Calculator")
 st.write("Calculate trade margin from costs (manual inputs).")
 BASE_CCY = "GBP"
 BASE_SYMBOL = "£"
@@ -726,7 +726,7 @@ Please provide:
         return f"Error generating AI comment: {str(e)}"
 
 # ---------- Results + AI blocks ----------
-cocoa_market_price = get_cocoa_price() or 3500
+##cocoa_market_price = get_cocoa_price() or 3500
 margin_per_ton = (sell_price or 0.0) - cost_per_ton
 total_margin = margin_per_ton * volume
 
@@ -741,7 +741,7 @@ with st.expander("🧠 AI Analysis"):
         buy_price=round((base_buy_incl if 'base_buy_incl' in globals() else (base_buy + buying_diff)), 2),
         sell_price=round(sell_price or 0.0, 2),
         freight_cost=round(freight_per_ton or 0.0, 2),
-        cocoa_price=cocoa_market_price,
+        cocoa_price=get_cocoa_price(),
         fx_rate=round(trade_fx_rate, 4),
         fx_label=trade_fx_label,
         margin=margin_percent,
