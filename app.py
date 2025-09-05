@@ -664,26 +664,117 @@ with st.expander("📦 Warehouse Cost Breakdown", expanded=True):
             st.info("No manual rows — total will be £0.00 unless you add some.")
 
 # --- Safe warehouse total calculation ---
+# ---------- Warehouse costs (GBP/t; rent always multiplied by months) ----------
 warehouse_total_per_ton = 0.0
+warehouse_excel_path = "warehouse_costs.xlsx"
 
-if warehouse_costs is None:
-    warehouse_total_per_ton = 0.0
-else:
-    try:
-        # Try to squeeze to a Series (works if it's DataFrame with one column)
-        s = warehouse_costs.squeeze() if hasattr(warehouse_costs, "squeeze") else warehouse_costs
-        if isinstance(s, pd.Series):
-            s = pd.to_numeric(s, errors="coerce").fillna(0.0)
-            warehouse_total_per_ton = float(s.sum())
+use_manual_wh = st.sidebar.checkbox(
+    "Enter WAREHOUSE costs manually (override Excel)?",
+    value=False,
+    help="If ON, edit the table below. Excel stays unchanged. 'WAREHOUSE RENT' is still multiplied by the selected months."
+)
+
+RENT_ALIASES = {"WAREHOUSE RENT", "RENT", "STORAGE RENT"}
+
+def _load_excel_series_raw(warehouse_name: str) -> pd.Series | None:
+    """Raw Excel series (rent is per-month)."""
+    if not os.path.exists(warehouse_excel_path):
+        st.warning("Warehouse cost file not found: warehouse_costs.xlsx")
+        return None
+    df = pd.read_excel(warehouse_excel_path, index_col=0)
+    df.columns = [str(c).strip() for c in df.columns]
+    df.index = df.index.map(lambda x: str(x).strip().upper())
+    if warehouse_name not in df.columns:
+        st.warning(f"No cost data found for selected warehouse: {warehouse_name}")
+        return None
+    s = pd.to_numeric(df[warehouse_name].dropna(), errors="coerce").fillna(0.0).astype(float)
+    return s
+
+def _apply_rent_months(s: pd.Series) -> pd.Series:
+    """Multiply rent-like row by rent_months; other rows unchanged."""
+    s = s.copy()
+    rk = next((k for k in RENT_ALIASES if k in s.index), None)
+    if rk:
+        base_val = float(s.loc[rk])
+        s.loc[rk] = base_val * rent_months
+        st.sidebar.caption(
+            f"Warehouse rent: {base_currency_symbol}{base_val:.2f}/t × {rent_months} mo = "
+            f"{base_currency_symbol}{base_val*rent_months:.2f}/t"
+        )
+    else:
+        st.sidebar.caption("No 'WAREHOUSE RENT' row found; no monthly multiplier applied.")
+    return s
+
+excel_series_raw = _load_excel_series_raw(selected_warehouse)
+
+# Session cache for editor rows (not persisted)
+if "wh_manual_cache" not in st.session_state:
+    st.session_state.wh_manual_cache = {}
+if st.session_state.get("wh_manual_last_wh") != selected_warehouse:
+    st.session_state.wh_manual_last_wh = selected_warehouse
+    # initialize for this warehouse from Excel (or empty)
+    init_df = pd.DataFrame({"Cost Item": [], "GBP/ton (per unit)": []})
+    if excel_series_raw is not None:
+        init_df = pd.DataFrame({
+            "Cost Item": excel_series_raw.index.tolist(),
+            "GBP/ton (per unit)": [float(v) for v in excel_series_raw.values],
+        })
+    st.session_state.wh_manual_cache[selected_warehouse] = init_df
+
+with st.expander("📦 Warehouse Cost Breakdown", expanded=True):
+    st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
+
+    if not use_manual_wh:
+        # Excel mode: show single table (already multiplied)
+        if excel_series_raw is not None:
+            warehouse_costs = _apply_rent_months(excel_series_raw)
+            st.dataframe(
+                warehouse_costs.round(2).to_frame(name=selected_warehouse),
+                use_container_width=True
+            )
         else:
-            warehouse_total_per_ton = 0.0
-    except Exception as e:
-        st.warning(f"Could not sum warehouse costs: {e}")
+            warehouse_costs = None
+            st.info("No detailed cost breakdown available.")
+    else:
+        # Manual mode: one editable table only (per-unit values).
+        edited_df = st.data_editor(
+            st.session_state.wh_manual_cache[selected_warehouse],
+            num_rows="dynamic",
+            use_container_width=True,
+            key=f"wh_editor_{selected_warehouse}",
+            column_config={
+                "Cost Item": st.column_config.TextColumn(required=True),
+                "GBP/ton (per unit)": st.column_config.NumberColumn(required=True, step=1.0, format="%.2f"),
+            }
+        )
+        # Normalize and keep in session
+        edited_df["Cost Item"] = edited_df["Cost Item"].astype(str).str.strip()
+        edited_df["GBP/ton (per unit)"] = pd.to_numeric(edited_df["GBP/ton (per unit)"], errors="coerce").fillna(0.0)
+        st.session_state.wh_manual_cache[selected_warehouse] = edited_df
+
+        # Build the effective series for calculations (rent × months)
+        if edited_df.empty:
+            warehouse_costs = pd.Series(dtype=float)
+        else:
+            manual_series = pd.Series(
+                edited_df["GBP/ton (per unit)"].values,
+                index=edited_df["Cost Item"].str.upper().values,
+                dtype=float
+            )
+            warehouse_costs = _apply_rent_months(manual_series)
+
+        # Show the same editor (already visible) and compute totals; no extra tables.
+
+    # Safe total
+    if warehouse_costs is None:
         warehouse_total_per_ton = 0.0
+    else:
+        s = warehouse_costs.squeeze() if hasattr(warehouse_costs, "squeeze") else warehouse_costs
+        s = pd.to_numeric(s, errors="coerce").fillna(0.0)
+        warehouse_total_per_ton = float(s.sum())
 
-
-    mode_badge = " (manual override)" if use_manual_wh else " (from Excel)"
-    st.write(f"📦 Warehouse cost per ton{mode_badge}: **{base_currency_symbol}{warehouse_total_per_ton:.2f}**")
+    badge = " (manual override)" if use_manual_wh else " (from Excel)"
+    st.markdown(f"**📦 Warehouse cost per ton{badge}: {base_currency_symbol}{warehouse_total_per_ton:,.2f}**")
 
 
 # ---------- TRANSPORT (inland) from Excel: EUR per truck -> GBP per ton ----------
