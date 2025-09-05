@@ -687,8 +687,7 @@ def _load_excel_series_raw(warehouse_name: str) -> pd.Series | None:
     if warehouse_name not in df.columns:
         st.warning(f"No cost data found for selected warehouse: {warehouse_name}")
         return None
-    s = pd.to_numeric(df[warehouse_name].dropna(), errors="coerce").fillna(0.0).astype(float)
-    return s
+    return pd.to_numeric(df[warehouse_name].dropna(), errors="coerce").fillna(0.0).astype(float)
 
 def _apply_rent_months(s: pd.Series) -> pd.Series:
     """Multiply rent-like row by rent_months; other rows unchanged."""
@@ -712,7 +711,6 @@ if "wh_manual_cache" not in st.session_state:
     st.session_state.wh_manual_cache = {}
 if st.session_state.get("wh_manual_last_wh") != selected_warehouse:
     st.session_state.wh_manual_last_wh = selected_warehouse
-    # initialize for this warehouse from Excel (or empty)
     init_df = pd.DataFrame({"Cost Item": [], "GBP/ton (per unit)": []})
     if excel_series_raw is not None:
         init_df = pd.DataFrame({
@@ -747,12 +745,10 @@ with st.expander("📦 Warehouse Cost Breakdown", expanded=True):
                 "GBP/ton (per unit)": st.column_config.NumberColumn(required=True, step=1.0, format="%.2f"),
             }
         )
-        # Normalize and keep in session
         edited_df["Cost Item"] = edited_df["Cost Item"].astype(str).str.strip()
         edited_df["GBP/ton (per unit)"] = pd.to_numeric(edited_df["GBP/ton (per unit)"], errors="coerce").fillna(0.0)
         st.session_state.wh_manual_cache[selected_warehouse] = edited_df
 
-        # Build the effective series for calculations (rent × months)
         if edited_df.empty:
             warehouse_costs = pd.Series(dtype=float)
         else:
@@ -762,8 +758,6 @@ with st.expander("📦 Warehouse Cost Breakdown", expanded=True):
                 dtype=float
             )
             warehouse_costs = _apply_rent_months(manual_series)
-
-        # Show the same editor (already visible) and compute totals; no extra tables.
 
     # Safe total
     if warehouse_costs is None:
