@@ -663,16 +663,24 @@ with st.expander("📦 Warehouse Cost Breakdown", expanded=True):
             warehouse_costs = pd.Series(dtype=float)
             st.info("No manual rows — total will be £0.00 unless you add some.")
 
-    # Sum & show total
-    # Safe sum for warehouse costs
-    if warehouse_costs is None:
+# --- Safe warehouse total calculation ---
+warehouse_total_per_ton = 0.0
+
+if warehouse_costs is None:
+    warehouse_total_per_ton = 0.0
+else:
+    try:
+        # Try to squeeze to a Series (works if it's DataFrame with one column)
+        s = warehouse_costs.squeeze() if hasattr(warehouse_costs, "squeeze") else warehouse_costs
+        if isinstance(s, pd.Series):
+            s = pd.to_numeric(s, errors="coerce").fillna(0.0)
+            warehouse_total_per_ton = float(s.sum())
+        else:
+            warehouse_total_per_ton = 0.0
+    except Exception as e:
+        st.warning(f"Could not sum warehouse costs: {e}")
         warehouse_total_per_ton = 0.0
-    elif isinstance(warehouse_costs, pd.Series):
-        warehouse_total_per_ton = float(pd.to_numeric(warehouse_costs, errors="coerce").fillna(0).sum())
-    else:
-        # If it ever ends up as a DataFrame, squeeze to Series
-        s = pd.to_numeric(getattr(warehouse_costs, "squeeze", lambda: warehouse_costs)(), errors="coerce").fillna(0)
-    warehouse_total_per_ton = float(s.sum())
+
 
     mode_badge = " (manual override)" if use_manual_wh else " (from Excel)"
     st.write(f"📦 Warehouse cost per ton{mode_badge}: **{base_currency_symbol}{warehouse_total_per_ton:.2f}**")
