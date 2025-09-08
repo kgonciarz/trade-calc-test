@@ -427,46 +427,24 @@ else:
 
 # --- STOCK INSURANCE as % of base buy ---
 # --- STOCK INSURANCE (per month, tied to Warehouse rent months) ---
-stock_ins_mode = st.sidebar.selectbox(
-    "Stock insurance calculation",
-    ["% of base buy (per month)", "% of base buy (per year)", "Fixed £/t (per month)"],
-    index=0,
-    key="stock_ins_mode"
+# --- STOCK INSURANCE (percentage × months) ---
+stock_ins_pct = st.sidebar.number_input(
+    "Stock insurance (% of base buy, per month)",
+    min_value=0.0, value=0.10, step=0.10, format="%.2f", key="stock_ins_pct"
 )
 
-if stock_ins_mode == "% of base buy (per month)":
-    stock_ins_pct_m = st.sidebar.number_input(
-        "Stock insurance % of base (per month)",
-        min_value=0.0, value=0.0, step=0.1, format="%.2f", key="stock_ins_pct_m"
-    )
-    stock_insurance_gbp = ((stock_ins_pct_m / 100.0) * base_buy) * rent_months
-    st.sidebar.caption(
-        f"Stock Insurance = {stock_ins_pct_m:.2f}% × base £{base_buy:,.2f} × {rent_months} mo "
-        f"= {BASE_SYMBOL}{stock_insurance_gbp:,.2f}/t"
-    )
+stock_ins_months = st.sidebar.number_input(
+    "Stock insurance months",
+    min_value=0, value=int(rent_months), step=1, key="stock_ins_months"
+)
 
-elif stock_ins_mode == "% of base buy (per year)":
-    stock_ins_pct_y = st.sidebar.number_input(
-        "Stock insurance % of base (per year)",
-        min_value=0.0, value=0.0, step=0.1, format="%.2f", key="stock_ins_pct_y"
-    )
-    stock_insurance_gbp = ((stock_ins_pct_y / 100.0) * base_buy) * (rent_months / 12.0)
-    st.sidebar.caption(
-        f"Stock Insurance = {stock_ins_pct_y:.2f}% × base £{base_buy:,.2f} × {rent_months}/12 "
-        f"= {BASE_SYMBOL}{stock_insurance_gbp:,.2f}/t"
-    )
+# cost per ton in GBP
+stock_insurance_gbp = (stock_ins_pct / 100.0) * base_buy * stock_ins_months
 
-else:  # Fixed £/t (per month)
-    stock_ins_fixed = st.sidebar.number_input(
-        "Fixed stock insurance (£ per ton per month)",
-        min_value=0.0, value=0.0, step=1.0, format="%.2f", key="stock_ins_fixed"
-    )
-    stock_insurance_gbp = stock_ins_fixed * rent_months
-    st.sidebar.caption(
-        f"Stock Insurance = £{stock_ins_fixed:,.2f}/t/mo × {rent_months} mo "
-        f"= {BASE_SYMBOL}{stock_insurance_gbp:,.2f}/t"
-    )
-
+st.sidebar.caption(
+    f"Stock insurance = {stock_ins_pct:.2f}% × base £{base_buy:,.2f} × {stock_ins_months} mo "
+    f"= £{stock_insurance_gbp:,.2f}/t"
+)
 
 
 # ---------- Freight route table (optional) ----------
