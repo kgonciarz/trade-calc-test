@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
+import requests
 import pandas as pd
 import streamlit as st
 import yfinance as yf
@@ -141,86 +141,79 @@ buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"],
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "£")
 
-# ---- Use ICE futures via Yahoo (delayed) for Buy Price ----
+# ---- Buy price from ICE London (Excel) or Manual ----
+# ==== ICE London (Excel) — hardcoded, no Yahoo, no upload ====
+
+# ===== ICE London from SharePoint (public direct download, no auth) =====
+
+
+ICE_PUBLIC_DOWNLOAD = "https://cocoasourcech-my.sharepoint.com/:x:/g/personal/tventurino_cocoasource_ch/EbIiIjIAwZRNgTBVOUMLv-sBc3p8g9KuLPa9KTA6jPPXhA?e=a2Fr5e"
+
+# Month/year pickers (keep the contract choice UI)
 COCOA_DELIVERY_MONTHS = [("Mar","H"), ("May","K"), ("Jul","N"), ("Sep","U"), ("Dec","Z")]
-
-use_ice = st.sidebar.toggle(
-    "Use ICE futures for Buy Price (Yahoo, delayed)",
-    value=False,
-    help="Fetch month/year-specific ICE cocoa via Yahoo. Falls back to CC=F."
-)
-
-ice_month_name = st.sidebar.selectbox("ICE month", [n for n,_ in COCOA_DELIVERY_MONTHS], index=0)
+ice_month_name = st.sidebar.selectbox("ICE month", [n for n,_ in COCOA_DELIVERY_MONTHS], index=3)  # Sep default
 ice_month_code = dict(COCOA_DELIVERY_MONTHS)[ice_month_name]
 ice_year_full  = st.sidebar.number_input("ICE year", min_value=2024, max_value=2035,
                                          value=datetime.now().year, step=1)
-ice_yy = str(ice_year_full)[-2:]    # e.g., 2025 -> "25"
-ice_contract = f"CC{ice_month_code}{ice_yy}"  # e.g., CCZ24
-st.sidebar.caption(f"Selected contract: **{ice_contract}**")
+ice_yy = str(ice_year_full)[-2:]
+contract_label = f"C {ice_yy}{ice_month_code}-ICE"  # e.g. "C 27K-ICE"
 
-@st.cache_data(ttl=900, show_spinner=False)
-def fetch_cocoa_contract_usd(contract: str, nonce: int = 0):
-    """
-    Robust Yahoo fetch:
-      - tries <contract>.NYB, <contract>, then CC=F
-      - tries multiple periods so weekends/holidays still return last close
-      - returns (price_usd, used_symbol, last_bar_date, error_text)
-      - 'nonce' only forces a refetch when you click Refresh
-    """
-    import yfinance as yf
-    tried, last_err = [], None
-    symbols = (f"{contract}.NYB", contract, "CC=F")
-    # try short to longer lookback so we still get a recent bar
-    periods = [("1d", "1d"), ("5d", "1d"), ("1mo", "1d"), ("3mo", "1d")]
+# Refresh button for the Excel fetch
+if "ice_public_nonce" not in st.session_state:
+    st.session_state["ice_public_nonce"] = 0
+if st.sidebar.button("🔄 Refresh ICE London (Excel)"):
+    st.session_state["ice_public_nonce"] += 1
 
-    for sym in symbols:
-        tried.append(sym)
-        try:
-            t = yf.Ticker(sym)
-            for per, interval in periods:
-                h = t.history(period=per, interval=interval, auto_adjust=False)
-                if not h.empty and "Close" in h.columns:
-                    last_close = float(h["Close"].dropna().iloc[-1])
-                    last_date = str(h.index[-1].date())
-                    return last_close, sym, last_date, None
-            # fallback to fast_info if history was empty
-            try:
-                fi = getattr(t, "fast_info", None)
-                if fi and getattr(fi, "last_price", None):
-                    return float(fi.last_price), sym, None, None
-            except Exception as e:
-                last_err = f"{type(e).__name__}: {e}"
-        except Exception as e:
-            last_err = f"{type(e).__name__}: {e}"
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_ice_public_xls(download_url: str, contract_label: str, nonce: int):
+    r = requests.get(download_url, timeout=20, allow_redirects=True)
+    r.raise_for_status()
+    df = pd.read_excel(io.BytesIO(r.content), header=None)
 
-    return None, None, None, f"Tried {tried}; last error: {last_err}"
+    # Find the column whose header (first ~10 rows) matches "C 27K-ICE" style
+    def norm(s): return re.sub(r"[^A-Z0-9]", "", str(s).upper())
+    target = norm(contract_label)
 
-# refresh button to bust the cache
-if "ice_nonce" not in st.session_state:
-    st.session_state["ice_nonce"] = 0
-if st.sidebar.button("🔄 Refresh ICE price"):
-    st.session_state["ice_nonce"] += 1
+    header_row, col_idx = None, None
+    max_header_rows = min(10, len(df))
+    for rr in range(max_header_rows):
+        row = df.iloc[rr]
+        for cc, val in row.items():
+            if norm(val) == target:
+                header_row, col_idx = rr, cc
+                break
+        if col_idx is not None:
+            break
+    if col_idx is None:
+        raise ValueError(f"Contract not found in Excel: {contract_label}")
 
-if use_ice:
-    ice_usd, used_symbol, last_date, ice_err = fetch_cocoa_contract_usd(
-        ice_contract, nonce=st.session_state["ice_nonce"]
+    col = pd.to_numeric(df.iloc[header_row+1:, col_idx], errors="coerce").dropna()
+    if col.empty:
+        raise ValueError("No numeric price under the contract column.")
+    last_idx = col.index[-1]
+    price_gbp = float(col.loc[last_idx])
+
+    # Optional date from first column on same row
+    try:
+        dt = pd.to_datetime(df.iloc[last_idx, 0], errors="coerce")
+        last_date = dt.strftime("%Y-%m-%d") if pd.notna(dt) else None
+    except Exception:
+        last_date = None
+
+    return price_gbp, last_date
+
+try:
+    px, last_date = fetch_ice_public_xls(
+        ICE_PUBLIC_DOWNLOAD, contract_label, st.session_state["ice_public_nonce"]
     )
-    if ice_usd is not None:
-        buy_price = ice_usd * usd_gbp_rate
-        buy_currency = "GBP"
-        base_currency_symbol = "£"
-        date_note = f" (last bar {last_date})" if last_date else ""
-        st.sidebar.caption(f"{used_symbol}: ${ice_usd:,.2f}/t → £{buy_price:,.2f}/t{date_note}")
-    else:
-        st.sidebar.warning("Couldn’t fetch ICE price; using manual Buy Price.")
-        st.sidebar.caption(ice_err or "No data returned.")
+    buy_price = px                 # already GBP/t
+    buy_currency = "GBP"
+    base_currency_symbol = "£"
+    st.sidebar.success(f"{contract_label}: £{px:,.2f}/t" + (f" • {last_date}" if last_date else ""))
+except Exception as e:
+    st.sidebar.error(f"SharePoint Excel fetch failed: {e}")
 
 
-# Convert buy price to EUR for all subsequent calc
-if buy_currency == "EUR":
-    buy_price *= eur_gbp_rate
-elif buy_currency == "USD":
-    buy_price *= usd_gbp_rate
 # Convert buy price to EUR for all subsequent calc
 if buy_currency == "EUR":
     buy_price *= eur_gbp_rate
