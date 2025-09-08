@@ -147,7 +147,7 @@ base_currency_symbol = currency_symbols.get(buy_currency, "£")
 # ===== ICE London from SharePoint (public direct download, no auth) =====
 
 
-ICE_PUBLIC_DOWNLOAD = "https://cocoasourcech-my.sharepoint.com/:x:/g/personal/tventurino_cocoasource_ch/EbIiIjIAwZRNgTBVOUMLv-sBc3p8g9KuLPa9KTA6jPPXhA?e=a2Fr5e"
+ICE_PUBLIC_DOWNLOAD = "https://cocoasourcech-my.sharepoint.com/:x:/g/personal/tventurino_cocoasource_ch/EbIiIjIAwZRNgTBVOUMLv-sBc3p8g9KuLPa9KTA6jPPXhA"
 
 # Month/year pickers (keep the contract choice UI)
 COCOA_DELIVERY_MONTHS = [("Mar","H"), ("May","K"), ("Jul","N"), ("Sep","U"), ("Dec","Z")]
