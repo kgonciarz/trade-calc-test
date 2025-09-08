@@ -238,7 +238,7 @@ base_buy_incl = buy_price + buying_diff
 
 port = st.sidebar.selectbox("Port of Loading (POL)", sorted(pol_options))
 destination = st.sidebar.selectbox("Destination", sorted(destination_options))
-container_size = st.sidebar.selectbox("Container Size", ["20", "40"], index=0)
+container_size = st.sidebar.selectbox("Container Size", ["20", "40"], index=1)
 carrier = st.sidebar.selectbox("Shipping Line (optional)", ["Auto (priciest)"] + sorted(carrier_options))
 selected_carrier = None if carrier == "Auto (priciest)" else carrier
 
