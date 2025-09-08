@@ -426,15 +426,47 @@ else:
     marine_insurance_gbp = money_input_gbp("MARINE INSURANCE")
 
 # --- STOCK INSURANCE as % of base buy ---
-stock_ins_pct = st.sidebar.number_input(
-    "STOCK INSURANCE (% of base buy)",
-    min_value=0.0,
-    value=0.0,
-    step=0.1,
-    format="%.2f"
+# --- STOCK INSURANCE (per month, tied to Warehouse rent months) ---
+stock_ins_mode = st.sidebar.selectbox(
+    "Stock insurance calculation",
+    ["% of base buy (per month)", "% of base buy (per year)", "Fixed £/t (per month)"],
+    index=0,
+    key="stock_ins_mode"
 )
-stock_insurance_gbp = (stock_ins_pct / 100.0) * base_buy
-st.sidebar.caption(f"Stock Insurance = {stock_ins_pct:.2f}% of base → {BASE_SYMBOL}{stock_insurance_gbp:.2f}/t")
+
+if stock_ins_mode == "% of base buy (per month)":
+    stock_ins_pct_m = st.sidebar.number_input(
+        "Stock insurance % of base (per month)",
+        min_value=0.0, value=0.0, step=0.1, format="%.2f", key="stock_ins_pct_m"
+    )
+    stock_insurance_gbp = ((stock_ins_pct_m / 100.0) * base_buy) * rent_months
+    st.sidebar.caption(
+        f"Stock Insurance = {stock_ins_pct_m:.2f}% × base £{base_buy:,.2f} × {rent_months} mo "
+        f"= {BASE_SYMBOL}{stock_insurance_gbp:,.2f}/t"
+    )
+
+elif stock_ins_mode == "% of base buy (per year)":
+    stock_ins_pct_y = st.sidebar.number_input(
+        "Stock insurance % of base (per year)",
+        min_value=0.0, value=0.0, step=0.1, format="%.2f", key="stock_ins_pct_y"
+    )
+    stock_insurance_gbp = ((stock_ins_pct_y / 100.0) * base_buy) * (rent_months / 12.0)
+    st.sidebar.caption(
+        f"Stock Insurance = {stock_ins_pct_y:.2f}% × base £{base_buy:,.2f} × {rent_months}/12 "
+        f"= {BASE_SYMBOL}{stock_insurance_gbp:,.2f}/t"
+    )
+
+else:  # Fixed £/t (per month)
+    stock_ins_fixed = st.sidebar.number_input(
+        "Fixed stock insurance (£ per ton per month)",
+        min_value=0.0, value=0.0, step=1.0, format="%.2f", key="stock_ins_fixed"
+    )
+    stock_insurance_gbp = stock_ins_fixed * rent_months
+    st.sidebar.caption(
+        f"Stock Insurance = £{stock_ins_fixed:,.2f}/t/mo × {rent_months} mo "
+        f"= {BASE_SYMBOL}{stock_insurance_gbp:,.2f}/t"
+    )
+
 
 
 # ---------- Freight route table (optional) ----------
@@ -742,21 +774,21 @@ st.write(f"💼 Total landed cost per ton ({buy_currency}): **{base_currency_sym
 
 
 # ---------- Warehouse breakdown ----------
-with st.expander("📦 Warehouse Cost Breakdown"):
-    st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
-    if warehouse_costs is not None:
-        styled = (
-            warehouse_costs.to_frame(name=selected_warehouse).round(2)
-            .style.format(precision=2)
-            .set_properties(**{'text-align': 'left'})
-            .set_table_styles([{'selector': 'th',
-                                'props': [('background-color', '#f0f0f0'),
-                                          ('text-align', 'left')]}])
-        )
-        st.write(styled)
-    else:
-        st.write("No detailed cost breakdown available.")
-    st.write(f"📦 Warehouse cost per ton: **{base_currency_symbol}{warehouse_total_per_ton:.2f}**")
+#with st.expander("📦 Warehouse Cost Breakdown"):
+#    st.write(f"🏷️ Selected Warehouse: **{selected_warehouse}**")
+#    if warehouse_costs is not None:
+#        styled = (
+#            warehouse_costs.to_frame(name=selected_warehouse).round(2)
+#            .style.format(precision=2)
+#            .set_properties(**{'text-align': 'left'})
+#            .set_table_styles([{'selector': 'th',
+#                                'props': [('background-color', '#f0f0f0'),
+#                                          ('text-align', 'left')]}])
+#        )
+#        st.write(styled)
+#    else:
+#        st.write("No detailed cost breakdown available.")
+#    st.write(f"📦 Warehouse cost per ton: **{base_currency_symbol}{warehouse_total_per_ton:.2f}**")
 
 # ---------- Market helper ----------
 def get_cocoa_price():
