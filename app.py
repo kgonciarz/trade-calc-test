@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import requests
+import base64, requests
 import pandas as pd
 import streamlit as st
 import yfinance as yf
@@ -141,77 +141,112 @@ buy_currency = st.sidebar.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"],
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "£")
 
-# ---- Buy price from ICE London (Excel) or Manual ----
-# ==== ICE London (Excel) — hardcoded, no Yahoo, no upload ====
+# ---------- SharePoint/Graph helpers ----------
+def _cfg(name, default=None):
+    # read from env first, then Streamlit secrets
+    return os.environ.get(name) or st.secrets.get(name, default)
 
-# ===== ICE London from SharePoint (public direct download, no auth) =====
+AZURE_TENANT_ID   = _cfg("AZURE_TENANT_ID")
+AZURE_CLIENT_ID   = _cfg("AZURE_CLIENT_ID")
+AZURE_CLIENT_SECRET = _cfg("AZURE_CLIENT_SECRET")
+ICE_SHARE_LINK    = _cfg("ICE_SHARE_LINK")  # the SharePoint link you saved as a secret
 
+def _graph_token() -> str:
+    """Client-credentials token for Microsoft Graph."""
+    url = f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/oauth2/v2.0/token"
+    data = {
+        "client_id": AZURE_CLIENT_ID,
+        "client_secret": AZURE_CLIENT_SECRET,
+        "scope": "https://graph.microsoft.com/.default",
+        "grant_type": "client_credentials",
+    }
+    r = requests.post(url, data=data, timeout=30)
+    r.raise_for_status()
+    return r.json()["access_token"]
 
-ICE_PUBLIC_DOWNLOAD = "https://cocoasourcech-my.sharepoint.com/:x:/g/personal/tventurino_cocoasource_ch/EbIiIjIAwZRNgTBVOUMLv-sBc3p8g9KuLPa9KTA6jPPXhA"
+def _encode_share_url(u: str) -> str:
+    """Encode a SharePoint sharing URL for /shares/{encoded}/driveItem endpoints."""
+    b64 = base64.b64encode(u.encode("utf-8")).decode("ascii")
+    return b64.rstrip("=").replace("+", "-").replace("/", "_")
 
-# Month/year pickers (keep the contract choice UI)
+@st.cache_data(ttl=180, show_spinner=False)
+def _download_ice_excel(nonce: int = 0) -> bytes:
+    """Download the Excel file bytes from SharePoint."""
+    token = _graph_token()
+    enc = _encode_share_url(ICE_SHARE_LINK)
+    url = f"https://graph.microsoft.com/v1.0/shares/{enc}/driveItem/content"
+    r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=60)
+    r.raise_for_status()
+    return r.content
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", "", str(s)).upper()
+
+def _get_london_contract_price(df: pd.DataFrame, month_code: str, year_full: int):
+    """
+    Your sheet has headers like 'C27K-ICE' or 'C27K-ICEU'.
+    Find the matching column and return the last numeric value.
+    """
+    yy = str(year_full)[-2:]
+    candidates = [
+        f"C{yy}{month_code}-ICEU",
+        f"C{yy}{month_code}-ICE",
+        f"C{yy}{month_code}ICEU",
+        f"C{yy}{month_code}ICE",
+    ]
+    # normalize column names
+    col_map = {_norm(c): c for c in df.columns}
+    # exact candidate match first
+    for cand in candidates:
+        key = _norm(cand)
+        if key in col_map:
+            col = col_map[key]
+            s = pd.to_numeric(df[col], errors="coerce").dropna()
+            if not s.empty:
+                return float(s.iloc[-1]), col
+    # fallback: partial match on yy+code
+    needle = _norm(f"{yy}{month_code}")
+    for raw in df.columns:
+        if needle in _norm(raw):
+            s = pd.to_numeric(df[raw], errors="coerce").dropna()
+            if not s.empty:
+                return float(s.iloc[-1]), raw
+    return None, None
+
+# ---- Use ICE London from SharePoint Excel ----
 COCOA_DELIVERY_MONTHS = [("Mar","H"), ("May","K"), ("Jul","N"), ("Sep","U"), ("Dec","Z")]
-ice_month_name = st.sidebar.selectbox("ICE month", [n for n,_ in COCOA_DELIVERY_MONTHS], index=3)  # Sep default
+
+use_london_excel = st.sidebar.toggle(
+    "Use ICE London (SharePoint Excel)",
+    value=True,
+    help="Fetch month/year specific ICE London price from the Excel on SharePoint."
+)
+
+ice_month_name = st.sidebar.selectbox("ICE month", [n for n,_ in COCOA_DELIVERY_MONTHS], index=0)
 ice_month_code = dict(COCOA_DELIVERY_MONTHS)[ice_month_name]
 ice_year_full  = st.sidebar.number_input("ICE year", min_value=2024, max_value=2035,
                                          value=datetime.now().year, step=1)
-ice_yy = str(ice_year_full)[-2:]
-contract_label = f"C {ice_yy}{ice_month_code}-ICE"  # e.g. "C 27K-ICE"
+st.sidebar.caption(f"Selected: C{str(ice_year_full)[-2:]}{ice_month_code}-ICE(U)")
 
-# Refresh button for the Excel fetch
-if "ice_public_nonce" not in st.session_state:
-    st.session_state["ice_public_nonce"] = 0
-if st.sidebar.button("🔄 Refresh ICE London (Excel)"):
-    st.session_state["ice_public_nonce"] += 1
+if "london_nonce" not in st.session_state:
+    st.session_state["london_nonce"] = 0
+if st.sidebar.button("🔄 Refresh ICE (SharePoint)"):
+    st.session_state["london_nonce"] += 1
 
-@st.cache_data(ttl=60, show_spinner=False)
-def fetch_ice_public_xls(download_url: str, contract_label: str, nonce: int):
-    r = requests.get(download_url, timeout=20, allow_redirects=True)
-    r.raise_for_status()
-    df = pd.read_excel(io.BytesIO(r.content), header=None)
-
-    # Find the column whose header (first ~10 rows) matches "C 27K-ICE" style
-    def norm(s): return re.sub(r"[^A-Z0-9]", "", str(s).upper())
-    target = norm(contract_label)
-
-    header_row, col_idx = None, None
-    max_header_rows = min(10, len(df))
-    for rr in range(max_header_rows):
-        row = df.iloc[rr]
-        for cc, val in row.items():
-            if norm(val) == target:
-                header_row, col_idx = rr, cc
-                break
-        if col_idx is not None:
-            break
-    if col_idx is None:
-        raise ValueError(f"Contract not found in Excel: {contract_label}")
-
-    col = pd.to_numeric(df.iloc[header_row+1:, col_idx], errors="coerce").dropna()
-    if col.empty:
-        raise ValueError("No numeric price under the contract column.")
-    last_idx = col.index[-1]
-    price_gbp = float(col.loc[last_idx])
-
-    # Optional date from first column on same row
+if use_london_excel:
     try:
-        dt = pd.to_datetime(df.iloc[last_idx, 0], errors="coerce")
-        last_date = dt.strftime("%Y-%m-%d") if pd.notna(dt) else None
-    except Exception:
-        last_date = None
-
-    return price_gbp, last_date
-
-try:
-    px, last_date = fetch_ice_public_xls(
-        ICE_PUBLIC_DOWNLOAD, contract_label, st.session_state["ice_public_nonce"]
-    )
-    buy_price = px                 # already GBP/t
-    buy_currency = "GBP"
-    base_currency_symbol = "£"
-    st.sidebar.success(f"{contract_label}: £{px:,.2f}/t" + (f" • {last_date}" if last_date else ""))
-except Exception as e:
-    st.sidebar.error(f"SharePoint Excel fetch failed: {e}")
+        excel_bytes = _download_ice_excel(st.session_state["london_nonce"])
+        df_excel = pd.read_excel(BytesIO(excel_bytes))  # requires openpyxl in requirements
+        price_gbp, used_col = _get_london_contract_price(df_excel, ice_month_code, ice_year_full)
+        if price_gbp is None:
+            st.sidebar.error("Contract not found in Excel. Check month/year/headers.")
+        else:
+            buy_price = price_gbp              # ICE London is GBP/t
+            buy_currency = "GBP"
+            base_currency_symbol = "£"
+            st.sidebar.success(f"{used_col}: £{price_gbp:,.2f}/t (SharePoint)")
+    except Exception as e:
+        st.sidebar.error(f"SharePoint Excel fetch failed: {e}")
 
 
 # Convert buy price to EUR for all subsequent calc
