@@ -29,6 +29,30 @@ st.title("🧮 Cocoa Trade Assistant — Margin Calculator")
 st.write("Calculate trade margin from costs (manual inputs).")
 BASE_CCY = "GBP"
 BASE_SYMBOL = "£"
+
+# --- LAYOUT ---
+spacer, COL_IN, COL_OUT = st.columns([0.12, 0.58, 0.30])  # lewa „przestrzeń”, środek = wejście, prawa = wynik
+
+# Prosty alias: zamiast st.sidebar.xxx używaj IN.xxx
+class _Panel:
+    def __init__(self, col): self.col = col
+    def __getattr__(self, name): return getattr(self.col, name)
+
+IN  = _Panel(COL_IN)   # wejścia do środka
+OUT = _Panel(COL_OUT)  # wszystko co „wynikowe” na prawo
+
+# --- WIĘKSZE WIDGETY (lekki CSS) ---
+st.markdown("""
+<style>
+/* większe pola i etykiety */
+label, .stMarkdown p { font-size: 1.05rem; }
+div[data-baseweb="select"] > div { min-height: 48px; }           /* selectbox */
+input[type="number"], input[type="text"] { height: 48px; font-size: 1.05rem; }
+/* przyciski */
+button[kind="primary"], .stButton button { height: 44px; font-size: 1rem; }
+</style>
+""", unsafe_allow_html=True)
+
 # ---------- FX helpers ----------
 def get_fx_rate(pair: str):
     ticker = yf.Ticker(pair)
