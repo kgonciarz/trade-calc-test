@@ -250,6 +250,7 @@ if use_ice_london:
                 buy_price = last_val
                 buy_currency = "GBP"
                 base_currency_symbol = "£"
+                st.session_state["ice_benchmark_gbp"] = last_val
                 IN.caption(f"{found_col}: £{last_val:,.2f}/t (SharePoint)")
     except Exception as e:
         IN.error(f"SharePoint Excel fetch failed: {e}")
@@ -726,6 +727,23 @@ Please provide:
 margin_per_ton = (sell_price or 0.0) - cost_per_ton
 total_margin = margin_per_ton * volume
 
+# === LANDED DIFF vs benchmark (ICE/CC=F) ===
+benchmark_price_gbp = st.session_state.get("ice_benchmark_gbp")
+
+# Fallback: CC=F (USD/t) → GBP/t
+if benchmark_price_gbp is None:
+    cc_usd = get_cocoa_price()   # funkcja już jest niżej w pliku – jeśli masz ją niżej, przenieś definicję wyżej lub zostaw ten blok za definicją funkcji
+    if cc_usd is not None:
+        benchmark_price_gbp = round(cc_usd * usd_gbp_rate, 2)
+
+# policz i pokaż na zielono
+if benchmark_price_gbp is not None:
+    landed_diff = cost_per_ton - benchmark_price_gbp
+    OUT.success(f"Landed diff: {base_currency_symbol}{landed_diff:,.2f}/t")
+    # (opcjonalnie, pokaż jaki benchmark został użyty)
+    OUT.caption(f"Benchmark used: {base_currency_symbol}{benchmark_price_gbp:,.2f}/t")
+
+# Twoje istniejące zielone boxy:
 OUT.success(f"Margin per ton: **{base_currency_symbol}{margin_per_ton:.2f}**")
 OUT.success(f"Total margin: **{base_currency_symbol}{total_margin:.2f}**")
 
