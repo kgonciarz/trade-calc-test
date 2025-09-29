@@ -562,10 +562,11 @@ with OUT.expander("📦 Warehouse Cost Breakdown", expanded=True):
             use_container_width=True,
             key=f"wh_editor_{selected_warehouse}",
             column_config={
-                "Cost Item": OUT.column_config.TextColumn(required=True),
-                "GBP/ton (per unit)": OUT.column_config.NumberColumn(required=True, step=1.0, format="%.2f"),
+                "Cost Item": st.column_config.TextColumn(required=True),
+                "GBP/ton (per unit)": st.column_config.NumberColumn(required=True, step=1.0, format="%.2f"),
             }
         )
+
         edited_df["Cost Item"] = edited_df["Cost Item"].astype(str).str.strip()
         edited_df["GBP/ton (per unit)"] = pd.to_numeric(edited_df["GBP/ton (per unit)"], errors="coerce").fillna(0.0)
         st.session_state.wh_manual_cache[selected_warehouse] = edited_df
