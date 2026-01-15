@@ -777,7 +777,7 @@ def build_pdf_report(
     total_margin: float | None,
     required_sell_price: float | None,
     volume: float,
-) -> BytesIO:
+):
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
 
