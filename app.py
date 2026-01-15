@@ -2,13 +2,12 @@ import os
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import base64, requests
+import requests
 import pandas as pd
 import streamlit as st
 import yfinance as yf
 from openai import OpenAI
-
-from io import BytesIO
+import xml.etree.ElementTree as ET
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -50,6 +49,51 @@ input[type="number"], input[type="text"] { height: 48px; font-size: 1.05rem; }
 button[kind="primary"], .stButton button { height: 44px; font-size: 1rem; }
 </style>
 """, unsafe_allow_html=True)
+
+ICE_XTICK_URL = os.getenv("ICE_XTICK_URL", "")
+ICE_USERNAME  = os.getenv("ICE_USERNAME", "")
+ICE_PASSWORD  = os.getenv("ICE_PASSWORD", "")
+
+def _ice_ok() -> bool:
+    return bool(ICE_XTICK_URL and ICE_USERNAME and ICE_PASSWORD)
+
+@st.cache_data(ttl=15, show_spinner=False)
+def fetch_ice_last_close(symbol: str) -> float | None:
+    """
+    Fetch latest 5-min bar close for a given ICE symbol via xtick.
+    Returns float close or None.
+    """
+    if not _ice_ok():
+        return None
+
+    r = requests.get(
+        ICE_XTICK_URL,
+        params={
+            "username": ICE_USERNAME,
+            "pwd": ICE_PASSWORD,
+            "symbol": symbol,
+            "period": "i5",
+            "options.nbars": "1",
+        },
+        timeout=20,
+    )
+    r.raise_for_status()
+    xml_text = (r.text or "").strip()
+    if not xml_text:
+        return None
+    if "status=" in xml_text and "not entitled" in xml_text.lower():
+        return None
+
+    root = ET.fromstring(xml_text)
+    bar = root.find(".//bar")
+    if bar is None:
+        return None
+    close_txt = bar.findtext("close")
+    if close_txt is None:
+        return None
+
+    val = pd.to_numeric(close_txt, errors="coerce")
+    return None if pd.isna(val) else float(val)
 
 # ---------- FX helpers ----------
 def get_fx_rate(pair: str):
@@ -157,50 +201,6 @@ buy_currency = IN.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "£")
 
-# --- SharePoint (Graph) helpers ---------------------------------------------
-def _must(name: str) -> str:
-    v = os.environ.get(name) or (getattr(st, "secrets", {}) or {}).get(name)
-    if not v:
-        st.error(f"Missing secret: {name}")
-        st.stop()
-    return v
-
-AZURE_TENANT_ID     = _must("AZURE_TENANT_ID")
-AZURE_CLIENT_ID     = _must("AZURE_CLIENT_ID")
-AZURE_CLIENT_SECRET = _must("AZURE_CLIENT_SECRET")
-ICE_SHARE_LINK      = _must("ICE_SHARE_LINK")  # the "Copy link" URL to Live_Prices.xlsx
-
-@st.cache_data(ttl=600, show_spinner=False)
-def graph_token() -> str:
-    url = f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/oauth2/v2.0/token"
-    data = {
-        "client_id": AZURE_CLIENT_ID,
-        "client_secret": AZURE_CLIENT_SECRET,
-        "grant_type": "client_credentials",
-        "scope": "https://graph.microsoft.com/.default",
-    }
-    r = requests.post(url, data=data, timeout=30)
-    r.raise_for_status()
-    return r.json()["access_token"]
-
-def _encode_share_url(share_url: str) -> str:
-    tok = base64.urlsafe_b64encode(share_url.encode("utf-8")).decode("utf-8").rstrip("=")
-    return f"u!{tok}"
-
-@st.cache_data(ttl=30, show_spinner=False)
-def fetch_excel_bytes_from_share_link(share_url: str) -> bytes:
-    encoded = _encode_share_url(share_url)
-    url = f"https://graph.microsoft.com/v1.0/shares/{encoded}/driveItem/content"
-    r = requests.get(url, headers={"Authorization": f"Bearer {graph_token()}"}, timeout=30)
-    r.raise_for_status()
-    return r.content
-
-@st.cache_data(ttl=30, show_spinner=False)
-def read_ice_xlsx_from_sharepoint() -> pd.DataFrame:
-    content = fetch_excel_bytes_from_share_link(ICE_SHARE_LINK)
-    df = pd.read_excel(BytesIO(content), header=0)
-    df.columns = [str(c).strip().upper().replace("  ", " ") for c in df.columns]
-    return df
 
 # --- ICE London contract selectors ---
 COCOA_DELIVERY_MONTHS = [("Mar","H"), ("May","K"), ("Jul","N"), ("Sep","U"), ("Dec","Z")]
@@ -221,39 +221,31 @@ ice_year_full = IN.number_input(
 ice_month_code = dict(COCOA_DELIVERY_MONTHS)[ice_month_name]
 IN.caption(f"Selected: C {ice_year_full % 100:02d}{ice_month_code}-ICE")
 
-# ---- Use ICE London from SharePoint Excel ----
+# ---- Use ICE London from API ----
 use_ice_london = IN.toggle(
-    "Use ICE London futures from SharePoint (Excel)",
+    "Use ICE London futures (LIVE from ICE)",
     value=False,
-    help="Reads Live_Prices.xlsx via Microsoft Graph."
+    help="Pulls latest 5-min close from ICE xtick connection."
 )
+
 
 if use_ice_london:
     yy = ice_year_full % 100
-    target_label = f"C {yy:02d}{ice_month_code}-ICE".upper()
+    target_symbol = f"C {yy:02d}{ice_month_code}-ICE"  # your London cocoa format
 
     try:
-        ice_df = read_ice_xlsx_from_sharepoint()
-        variants = {target_label, target_label.replace(" ", ""), target_label.replace("-ICE", " ICE")}
-        norm_cols = {c.replace(" ", ""): c for c in ice_df.columns}
-        wanted_norm = {v.replace(" ", "") for v in variants}
-        found_col = next((norm_cols[nc] for nc in wanted_norm if nc in norm_cols), None)
-
-        if not found_col:
-            IN.warning(f"Could not find column '{target_label}' in Excel. Using manual Buy Price.")
+        last_val = fetch_ice_last_close(target_symbol)
+        if last_val is None:
+            IN.warning(f"No ICE value for '{target_symbol}' (not entitled / no data). Using manual Buy Price.")
         else:
-            series = pd.to_numeric(ice_df[found_col], errors="coerce").dropna()
-            if series.empty:
-                IN.warning(f"No numeric values in '{found_col}'. Using manual Buy Price.")
-            else:
-                last_val = float(series.iloc[-1])
-                buy_price = last_val
-                buy_currency = "GBP"
-                base_currency_symbol = "£"
-                st.session_state["ice_benchmark_gbp"] = last_val
-                IN.caption(f"{found_col}: £{last_val:,.2f}/t (SharePoint)")
+            buy_price = last_val
+            buy_currency = "GBP"
+            base_currency_symbol = "£"
+            st.session_state["ice_benchmark_gbp"] = last_val
+            IN.caption(f"{target_symbol}: £{last_val:,.2f}/t (ICE live)")
     except Exception as e:
-        IN.error(f"SharePoint Excel fetch failed: {e}")
+        IN.error(f"ICE fetch failed: {e}. Using manual Buy Price.")
+
 
 # Convert buy price to GBP for all subsequent calc
 if buy_currency == "EUR":
