@@ -213,7 +213,7 @@ IN.title("📦 Trade Parameters")
 IN.markdown("## 🧾 Manual Cost Inputs (per ton)")
 
 volume = IN.number_input("Volume (tons)", min_value=1, value=1)
-buy_price = IN.number_input("Buy Price", value=7500.0, step=10.0, format="%.2f")
+buy_price = IN.number_input("Buy Price", value=3500.0, step=10.0, format="%.2f")
 buy_currency = IN.selectbox("Buy Price Currency", ["GBP", "EUR", "USD"], index=0)
 currency_symbols = {"EUR": "€", "USD": "$", "GBP": "£"}
 base_currency_symbol = currency_symbols.get(buy_currency, "£")
